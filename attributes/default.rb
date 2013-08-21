@@ -6,15 +6,5 @@
 # http://www.rightscale.com/terms.php and, if applicable, other agreements
 # such as a RightScale Master Subscription Agreement.
 
-gem_packages = [
-  'json',
-  'rest-client',
-  'right_api_client',
-  'system_timer'
-]
-
-# Install gems during compile phase so that they are available to files
-# which require them during converge phase.
-gem_packages.each do |gem_pkg|
-  chef_gem gem_pkg
-end
+# Device hash created in the node
+default[:rightscale_volume] = {}

@@ -71,6 +71,7 @@ Vagrant.configure("2") do |config|
   # config.berkshelf.except = []
 
   config.vm.provision :chef_solo do |chef|
+    chef.arguments = "--logfile /var/log/chef-solo.log"
     chef.json = {
       :mysql => {
         :server_root_password => 'rootpass',
