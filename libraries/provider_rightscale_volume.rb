@@ -47,7 +47,7 @@ class Chef
         # If volume already created do nothing.
         # We can check if volume already exist by checking its state.
         if @current_resource.state
-          msg = " Volume '#{@current_resource.name}' already exists."
+          msg = "Volume '#{@current_resource.name}' already exists."
           msg << " Volume ID: '#{@current_resource.volume_id}'" if @current_resource.volume_id
           msg << " Attached to: '#{@current_resource.device}'" if @current_resource.device
           Chef::Log.info msg
@@ -59,22 +59,16 @@ class Chef
         # If snapshot_id is provided restore volume from the specified snapshot.
         if @new_resource.snapshot_id
           Chef::Log.info "Creating a new volume from snapshot '#{@new_resource.snapshot_id}'..."
-          volume = create_volume_from_snapshot(
-            @new_resource.snapshot_id,
+        else
+          Chef::Log.info "Creating a new volume '#{@current_resource.name}'..."
+        end
+        volume = create_volume(
             @new_resource.name,
             @new_resource.size,
             @new_resource.description,
+            @new_resource.snapshot_id,
             @new_resource.options
           )
-        else
-          Chef::Log.info " Creating a new volume '#{@current_resource.name}'..."
-          volume = create_volume(
-            @current_resource.name,
-            @new_resource.size,
-            @new_resource.description,
-            @new_resource.options
-          )
-        end
         @current_resource.volume_id = volume.resource_uid
         @current_resource.size = volume.size
         @current_resource.description = volume.description
@@ -175,6 +169,7 @@ class Chef
       end
 
       # Creates a snapshot of the specified volume.
+      #
       def action_snapshot
         if @current_resource.state.nil?
           Chef::Log.info "Device '#{@current_resource.name}' does not exist."
@@ -252,7 +247,7 @@ class Chef
         require_gems
 
         require "/var/spool/cloud/user-data.rb"
-        account_id, instance_token = ENV["RS_API_TOKEN"].split /:/
+        account_id, instance_token = ENV["RS_API_TOKEN"].split(":")
         api_url = "https://#{ENV["RS_SERVER"]}"
         options = {
           :account_id => account_id,
@@ -290,7 +285,7 @@ class Chef
       # @param description [String] the volume description
       # @param options [Hash] the optional parameters for creating volume
       #
-      # @return [RightAPI::ResourceDetail] the created volume
+      # @return [RightApi::ResourceDetail] the created volume
       #
       # @raise [RuntimeError] if volume size is less than 100 GB for Rackspace Open Cloud
       # @raise [RuntimeError] if no snapshots were found in the cloud with the given snapshot ID
@@ -358,10 +353,8 @@ class Chef
       # Gets href of a volume_type.
       #
       # @param cloud [Symbol] the cloud which supports volume types
-      # @param size [Integer] the volume size (used by CloudStack to select
-      # appropriate volume type)
-      # @param options [Hash] the optional paramters required to choose volume
-      # type
+      # @param size [Integer] the volume size (used by CloudStack to select appropriate volume type)
+      # @param options [Hash] the optional paramters required to choose volume type
       #
       # @return [String, nil] the volume type href
       #
@@ -432,8 +425,7 @@ class Chef
       # @result [Boolean] status of volume deletion
       #
       # @raise [RightApi::Exceptions::ApiException] if volume destroy fails
-      # @raise [Timeout:Error] if the volume deletion takes longer than the
-      # time out value
+      # @raise [Timeout:Error] if the volume deletion takes longer than the time out value
       #
       def delete_volume(volume_id)
         # Get volume by Resource UID
@@ -469,8 +461,7 @@ class Chef
       # @return [String] the device to which volume actually attached
       #
       # @raise [RestClient::Exception] if volume attachment fails
-      # @raise [Timeout:Error] if the volume attach takes longer than the
-      # time out value
+      # @raise [Timeout:Error] if the volume attach takes longer than the time out value
       #
       def attach_volume(volume_id, device)
         # Get volume by Resource UID
@@ -566,7 +557,7 @@ class Chef
       #
       # @param nickname [String] the volume name
       #
-      # @return [RightApi::Client::Resources] the volume attachments
+      # @return [RightApi::Resources] the volume attachments
       #
       def volume_attachments(nickname = nil)
         filter = ["instance_href==#{instance_href}"]
@@ -595,7 +586,7 @@ class Chef
           attachment.show.device.include? "unknown"
         end
 
-        volumes = attachments.map do |attachment|
+        attachments.map do |attachment|
           volume = attachment.volume
           status = volume.show.status
           state = attachment.show.state
@@ -619,12 +610,10 @@ class Chef
       # @param snapshot_name [String] the name of the snapshot to be created
       # @param volume_id [String] the resource UID of the volume
       #
-      # @return [RightApi::Client::ResourceDetail] the snapshot created from the
-      # volume
+      # @return [RightApi::ResourceDetail] the snapshot created from the volume
       #
       # @raise [RuntimeError] if snapshot creation failed
-      # @raise [Timeout::Error] if snapshot creation takes longer than the
-      # time out value
+      # @raise [Timeout::Error] if snapshot creation takes longer than the time out value
       #
       def create_volume_snapshot(snapshot_name, volume_id)
         Chef::Log.info "Preparing for volume snapshot..."
@@ -652,17 +641,15 @@ class Chef
         snapshot.show
       end
 
-      # Deletes old snapshots of a specified volume that exceeds the maximum
-      # number of snapshots to keep for that volume.
+      # Deletes old snapshots of a specified volume that exceeds the maximum number of snapshots
+      # to keep for that volume.
       #
       # @param volume_id [String] the resoure UID of the volume
-      # @param max_snapshots_to_keep [Integer] the maximum number of snapshots
-      # to keep for a volume
+      # @param max_snapshots_to_keep [Integer] the maximum number of snapshots to keep for a volume
       #
       # @return [Integer] the number of snapshots actually deleted
       #
-      # @raise [Timeout::Error] if snapshot deletion takes longer than the
-      # time out value
+      # @raise [Timeout::Error] if snapshot deletion takes longer than the time out value
       #
       def cleanup_snapshots(volume_id, max_snapshots_to_keep)
         volume = find_volume_by_id(volume_id)
@@ -730,10 +717,8 @@ class Chef
       # Attempts to display any http response related information about the
       # exception and simply inspect the exception if none is available.
       #
-      # @param e [Exception] the exception which needs to displayed and
-      # inspected.
-      # @param display_name [String] optional display name to print custom
-      # information.
+      # @param e [Exception] the exception which needs to displayed and inspected.
+      # @param display_name [String] optional display name to print custom information.
       #
       def display_exception(e, display_name = nil)
         Chef::Log.info "CAUGHT EXCEPTION in: #{display_name}"
