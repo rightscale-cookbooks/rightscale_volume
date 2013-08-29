@@ -25,15 +25,15 @@ class Chef
         # Set @current_resource with device hash values in the node
         # If device hash is not present in the node, it may not have been
         # created or been deleted
-        device_hash = node[:rightscale_volume][@current_resource.name]
+        device_hash = node['rightscale_volume'][@current_resource.name]
         unless device_hash.nil?
-          @current_resource.size = device_hash[:size]
-          @current_resource.device = device_hash[:device]
-          @current_resource.description = device_hash[:description]
-          @current_resource.volume_id = device_hash[:volume_id]
-          @current_resource.state = device_hash[:state]
-          @current_resource.max_snapshots = device_hash[:max_snapshots]
-          @current_resource.timeout = device_hash[:timeout]
+          @current_resource.size = device_hash['size']
+          @current_resource.device = device_hash['device']
+          @current_resource.description = device_hash['description']
+          @current_resource.volume_id = device_hash['volume_id']
+          @current_resource.state = device_hash['state']
+          @current_resource.max_snapshots = device_hash['max_snapshots']
+          @current_resource.timeout = device_hash['timeout']
         end
         @current_resource.timeout = @new_resource.timeout
 
@@ -218,19 +218,19 @@ class Chef
       # Removes the device hash from the node variable.
       #
       def delete_device_hash
-        node[:rightscale_volume][@current_resource.name] = nil
+        node.set['rightscale_volume'][@current_resource.name] = nil
       end
 
       # Saves device hash to the node variable.
       #
       def save_device_hash
-        node[:rightscale_volume][@current_resource.name] ||= {}
-        node[:rightscale_volume][@current_resource.name][:size] = @current_resource.size
-        node[:rightscale_volume][@current_resource.name][:volume_id] = @current_resource.volume_id
-        node[:rightscale_volume][@current_resource.name][:device] = @current_resource.device
-        node[:rightscale_volume][@current_resource.name][:description] = @current_resource.description
-        node[:rightscale_volume][@current_resource.name][:state] = @current_resource.state
-        node[:rightscale_volume][@current_resource.name][:max_snapshots] = @current_resource.max_snapshots
+        node.set['rightscale_volume'][@current_resource.name] ||= {}
+        node.set['rightscale_volume'][@current_resource.name]['size'] = @current_resource.size
+        node.set['rightscale_volume'][@current_resource.name]['volume_id'] = @current_resource.volume_id
+        node.set['rightscale_volume'][@current_resource.name]['device'] = @current_resource.device
+        node.set['rightscale_volume'][@current_resource.name]['description'] = @current_resource.description
+        node.set['rightscale_volume'][@current_resource.name]['state'] = @current_resource.state
+        node.set['rightscale_volume'][@current_resource.name]['max_snapshots'] = @current_resource.max_snapshots
       end
 
       # Initializes API client for handling API 1.5 calls.
@@ -740,18 +740,12 @@ class Chef
         partitions = IO.readlines("/proc/partitions").drop(2).map do |line|
           line.chomp.split.last
         end
-        partitions = partitions.reject do |partition|
-          partition =~ /^dm-\d/
-        end
+        partitions = partitions.reject { |partition| partition =~ /^dm-\d/ }
 
-        devices = partitions.select do |partition|
-          partition =~ /[a-z]$/
-        end
+        devices = partitions.select { |partition| partition =~ /[a-z]$/ }
         devices = devices.sort.map { |device| "/dev/#{device}" }
         if devices.empty?
-          devices = partitions.select do |partition|
-            partition =~ /[0-9]$/
-          end
+          devices = partitions.select { |partition| partition =~ /[0-9]$/ }
           devices = devices.sort.map { |device| "/dev/#{device}" }
         end
         devices

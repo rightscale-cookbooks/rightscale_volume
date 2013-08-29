@@ -7,4 +7,4 @@
 # such as a RightScale Master Subscription Agreement.
 
 # Device hash created in the node
-default[:rightscale_volume] = {}
+default['rightscale_volume'] = {}
