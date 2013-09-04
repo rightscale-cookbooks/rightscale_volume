@@ -130,7 +130,7 @@ class Chef
           attached_device = attach_volume(@current_resource.volume_id, device)
         end
         @current_resource.device = attached_device
-        volume = find_volume_by_id(@current_resource.volume_id)
+        volume = find_volumes(:resource_uid => @current_resource.volume_id).first
         @current_resource.state = volume.show.status
 
         # Store all information in node variable
@@ -159,7 +159,7 @@ class Chef
         # cannot be trusted for API 1.5 and will be deprecated.
         detach_volume(@current_resource.volume_id)
         @current_resource.device = nil
-        volume = find_volume_by_id(@current_resource.volume_id)
+        volume = find_volumes(:resource_uid => @current_resource.volume_id).first
         @current_resource.state = volume.show.status
 
         # Store all information in node variable
@@ -429,7 +429,7 @@ class Chef
       #
       def delete_volume(volume_id)
         # Get volume by Resource UID
-        volume = find_volume_by_id(volume_id)
+        volume = find_volumes(:resource_uid => volume_id).first
 
         # Rescue 422 errors with following error message "Volume still has 'n'
         # dependent snapshots" and add warning statements to indicate volume
@@ -465,7 +465,7 @@ class Chef
       #
       def attach_volume(volume_id, device)
         # Get volume by Resource UID
-        volume = find_volume_by_id(volume_id)
+        volume = find_volumes(:resource_uid => volume_id).first
 
         # Set required paramters
         params = {
@@ -533,39 +533,55 @@ class Chef
         actual_device
       end
 
-      # Find volume by Resource UID.
+      # Finds volumes using the given filters.
       #
-      # @param volume_id [String] the resource UID of the volume
+      # @param fliters [Hash] the filters to find the volume
       #
-      # @return [RightApi::Client::Resource] the volume found
+      # @return [<RightApi::Client::Resource>Array] the volumes found
       #
-      def find_volume_by_id(volume_id)
-        @api_client.volumes.index(:filter => ["resource_uid==#{volume_id}"]).first
+      def find_volumes(filters = {})
+        @api_client.volumes.index(:filter => build_filters(filters))
+      end
+
+      # Builds a filters array in the format required by the RightScale API.
+      #
+      # @param filters [Hash<String, Object>] the filters as name, filter pairs
+      #
+      # @return [Array<String>] the filters as strings
+      #
+      def build_filters(filters)
+        filters.map do |name, filter|
+          case filter.to_s
+          when /^(!|<>)(.*)$/
+            operator = "<>"
+            filter = $2
+          when /^(==)?(.*)$/
+            operator = "=="
+            filter = $2
+          end
+          "#{name}#{operator}#{filter}"
+        end
       end
 
       # Gets the devices to which the volumes are attached.
       #
-      # @param nickname [String] the volume nickname
-      #
       # @return [Array] devices to which the volumes are attached
       #
-      def attached_devices(nickname = nil)
-        volume_attachments(nickname).map { |attachment| attachment.show.device }
+      def attached_devices
+        volume_attachments.map { |attachment| attachment.show.device }
       end
 
-      # Find all volume attachments of volumes with specified nickname.
+      # Find the volume attachments on an instance using the given filters.
       #
-      # @param nickname [String] the volume name
+      # @param filters [Hash] the filters to find volume attachments
       #
       # @return [RightApi::Resources] the volume attachments
       #
-      def volume_attachments(nickname = nil)
-        filter = ["instance_href==#{instance_href}"]
-        attachments = @api_client.volume_attachments.index(:filter => filter).reject do |attachment|
+      def volume_attachments(filters = {})
+        filter = ["instance_href==#{instance_href}"] + build_filters(filters)
+        @api_client.volume_attachments.index(:filter => filter).reject do |attachment|
           attachment.show.device.include? "unknown"
         end
-        attachments.reject! { |attachment| attachment.volume.show.name != nickname } if nickname
-        attachments
       end
 
       # Detaches a volume from the device
@@ -576,15 +592,8 @@ class Chef
       #
       def detach_volume(volume_id)
         Chef::Log.info "Preparing for volume detach"
-        volume = find_volume_by_id(volume_id)
-
-        filter = [
-          "instance_href==#{instance_href}",
-          "volume_href==#{volume.href}"
-        ]
-        attachments = @api_client.volume_attachments.index(:filter => filter).reject do |attachment|
-          attachment.show.device.include? "unknown"
-        end
+        volume = find_volumes(:resource_uid => volume_id).first
+        attachments = volume_attachments(:volume_href => volume.href)
 
         attachments.map do |attachment|
           volume = attachment.volume
@@ -618,7 +627,7 @@ class Chef
       def create_volume_snapshot(snapshot_name, volume_id)
         Chef::Log.info "Preparing for volume snapshot..."
 
-        volume = find_volume_by_id(volume_id)
+        volume = find_volumes(:resource_uid => volume_id).first
         params = {
           :volume_snapshot => {
             :name => snapshot_name,
@@ -652,7 +661,7 @@ class Chef
       # @raise [Timeout::Error] if snapshot deletion takes longer than the time out value
       #
       def cleanup_snapshots(volume_id, max_snapshots_to_keep)
-        volume = find_volume_by_id(volume_id)
+        volume = find_volumes(:resource_uid => volume_id).first
 
         # Find all "available" or "failed" snapshots created from specified
         # volume. Snapshots found are sorted from oldest to latest.
@@ -828,7 +837,7 @@ class Chef
       def scan_for_attachments
         # vmware/esx requires the following "hack" to make OS/Linux aware of device
         # Check for /sys/class/scsi_host/host0/scan if need to run
-        if File.exist?("/sys/class/scsi_host/host0/scan")
+        if ::File.exist?("/sys/class/scsi_host/host0/scan")
           cmd = Mixlib::ShellOut.new("echo '- - -' > /sys/class/scsi_host/host0/scan")
           cmd.run_command
           sleep 5
