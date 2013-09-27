@@ -713,16 +713,6 @@ class Chef
         @instance_href ||= @api_client.get_instance.href
       end
 
-      # Gets the href of the cloud.
-      #
-      # @return [String] the cloud href
-      #
-      def cloud_href
-        @cloud_href ||= @api_client.get_instance.links.detect do |link|
-          link["rel"] == "cloud"
-        end["href"]
-      end
-
       # Attempts to display any http response related information about the
       # exception and simply inspect the exception if none is available.
       #
