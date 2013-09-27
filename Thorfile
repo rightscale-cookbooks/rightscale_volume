@@ -5,6 +5,7 @@ require 'bundler/setup'
 require 'thor/foodcritic'
 require 'thor/scmversion'
 require 'berkshelf/thor'
+require 'rightscale_upload'
 
 begin
   require 'kitchen/thor_tasks'
