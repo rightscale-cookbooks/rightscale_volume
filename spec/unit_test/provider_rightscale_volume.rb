@@ -78,6 +78,30 @@ describe Chef::Provider::RightscaleVolume do
 
   let(:instance_stub) { double('instance', :links => [], :href => 'some_href') }
 
+  let(:volume_type_stub) do
+    volume_type = double('volume_type')
+    volume_type.stub(
+      :name => 'some_name',
+      :href => 'some_href',
+      :resource_uid => 'some_id'
+    )
+    volume_type
+  end
+
+  # Returns an array of given object.
+  #
+  # @param object [Object] the object that should be returned in an array
+  # @param n [Integer] the size of the array
+  #
+  # @return [<Object>Array] the array of objects
+  #
+  def array_of(object, n = 1)
+    Array.new(n) { object }
+  end
+
+
+  # Test all actions supported by the provider
+  #
   describe "actions" do
 
     # Creates a test volume by stubbing out the create_volume method.
@@ -86,6 +110,7 @@ describe Chef::Provider::RightscaleVolume do
       provider.stub(:create_volume).and_return(volume_stub)
       provider.run_action(:create)
     end
+
 
     before(:each) do
       new_resource.size = volume_stub.size
@@ -148,12 +173,12 @@ describe Chef::Provider::RightscaleVolume do
           create_test_volume
 
           attached_device = '/dev/some_device'
-          provider.stub(:device_letter_exclusions).and_return([])
-          provider.should_receive(:get_next_devices).and_return(['some_device'])
+          provider.stub(:device_letter_exclusions => [])
+          provider.should_receive(:get_next_devices).and_return(array_of('some_device'))
           provider.should_receive(:attach_volume).and_return(attached_device)
 
           volume_stub.stub(:status => 'in-use')
-          provider.should_receive(:find_volumes).and_return([].push(volume_resource))
+          provider.should_receive(:find_volumes).and_return(array_of(volume_resource))
           provider.run_action(:attach)
         end
       end
@@ -181,12 +206,6 @@ describe Chef::Provider::RightscaleVolume do
         it "should take a snapshot of the volume" do
           create_test_volume
 
-          snapshot_stub = double("snapshot")
-          snapshot_stub.stub(
-            :name => 'snapshot_name',
-            :resource_uid => 'snapshot ID',
-            :state => 'available'
-          )
           provider.should_receive(:create_volume_snapshot).and_return(snapshot_stub)
           provider.run_action(:snapshot)
         end
@@ -209,7 +228,7 @@ describe Chef::Provider::RightscaleVolume do
           provider.should_receive(:detach_volume).and_return(volume_stub)
 
           volume_stub.stub(:status => 'available')
-          provider.should_receive(:find_volumes).and_return([].push(volume_resource))
+          provider.should_receive(:find_volumes).and_return(array_of(volume_resource))
           provider.run_action(:detach)
         end
       end
@@ -306,12 +325,38 @@ describe Chef::Provider::RightscaleVolume do
     end
 
     describe "#get_volume_type_href" do
-      #TODO
+      #TODO: Better tests for Cloudstack and Rackspace Open Cloud
+      context "when the cloud is neither rackspace-ng nor cloudstack" do
+        it "should return nil" do
+          volume_type = provider.send(:get_volume_type_href, 'some_cloud', 1)
+          volume_type.should be_nil
+        end
+      end
+
+      context "when the cloud is rackspace-ng" do
+        it "should return href of the requested volume type" do
+          volume_type_stub.stub(:index => array_of(volume_type_stub))
+
+          client_stub.should_receive(:volume_types).and_return(volume_type_stub)
+          volume_type = provider.send(:get_volume_type_href, 'rackspace-ng', 100, {:volume_type => 'some_name'})
+          volume_type.should_not be_nil
+        end
+      end
+
+      context "when the cloud is cloudstack" do
+        it "should return href of the requested volume type" do
+          volume_type_stub.stub(:index => array_of(volume_type_stub), :size => '1')
+
+          client_stub.should_receive(:volume_types).and_return(volume_type_stub)
+          volume_type = provider.send(:get_volume_type_href, 'cloudstack', 1)
+          volume_type.should_not be_nil
+        end
+      end
     end
 
     describe "#delete_volume" do
       it "should delete the volume in the cloud" do
-        provider.stub(:find_volumes).and_return([].push(volume_resource))
+        provider.stub(:find_volumes).and_return(array_of(volume_resource))
         volume_resource.should_receive(:destroy)
         status = provider.send(:delete_volume, 'volume_id')
         status.should == true
@@ -319,13 +364,25 @@ describe Chef::Provider::RightscaleVolume do
     end
 
     describe "#attach_volume" do
-      #TODO
+      it "should attach the volume to an instance" do
+        provider.stub(:find_volumes).and_return(array_of(volume_resource))
+        provider.stub(:instance_href).and_return(instance_stub)
+        provider.stub(:get_current_devices).and_return(['device_1', 'device_2'])
+
+        node.set[:virtualization][:system] = 'some_hypervisor'
+        volume_attachment_resource.stub(:state => 'attached')
+        volume_stub.stub(:status => 'in-use')
+
+        client_stub.should_receive(:volume_attachments).and_return(volume_attachment_resource)
+        volume_attachment_resource.should_receive(:create).and_return(volume_attachment_resource)
+        provider.send(:attach_volume, 'some_id', 'some_device')
+      end
     end
 
     describe "#find_volumes" do
       it "should find volumes based on the given filter" do
         client_stub.should_receive(:volumes).and_return(volume_resource)
-        volume_resource.should_receive(:index).and_return([].push(volume_resource))
+        volume_resource.should_receive(:index).and_return(array_of(volume_resource))
         volumes = provider.send(:find_volumes)
         volumes.should be_a_kind_of(Array)
       end
@@ -333,7 +390,7 @@ describe Chef::Provider::RightscaleVolume do
 
     describe "#attached_devices" do
       it "should return the devices attached to the instance" do
-        provider.should_receive(:volume_attachments).and_return([].push(volume_attachment_resource))
+        provider.should_receive(:volume_attachments).and_return(array_of(volume_attachment_resource))
         devices = provider.send(:attached_devices)
         devices.should be_a_kind_of(Array)
       end
@@ -346,7 +403,7 @@ describe Chef::Provider::RightscaleVolume do
       it "should return the attached volumes based on the given filter" do
         provider.stub(:instance_href).and_return('some_href')
         client_stub.should_receive(:volume_attachments).and_return(volume_attachment_resource)
-        volume_attachment_resource.stub(:index).and_return([].push(volume_attachment_resource))
+        volume_attachment_resource.stub(:index).and_return(array_of(volume_attachment_resource))
         attachments = provider.send(:volume_attachments)
         attachments.should be_a_kind_of(Array)
       end
@@ -354,10 +411,10 @@ describe Chef::Provider::RightscaleVolume do
 
     describe "#detach_volume" do
       it "should detach the volume from the instance" do
-        provider.stub(:find_volumes).and_return([].push(volume_resource))
+        provider.stub(:find_volumes).and_return(array_of(volume_resource))
         client_stub.stub(:get_instance).and_return(instance_stub)
         client_stub.should_receive(:volume_attachments).and_return(volume_attachment_resource)
-        volume_attachment_resource.stub(:index => [].push(volume_attachment_resource))
+        volume_attachment_resource.stub(:index => array_of(volume_attachment_resource))
         volume_attachment_resource.should_receive(:destroy)
         provider.send(:detach_volume, 'volume_id')
       end
@@ -365,7 +422,7 @@ describe Chef::Provider::RightscaleVolume do
 
     describe "#create_volume_snapshot" do
       it "should create a snapshot of the given volume" do
-        provider.stub(:find_volumes).and_return([].push(volume_resource))
+        provider.stub(:find_volumes).and_return(array_of(volume_resource))
         client_stub.should_receive(:volume_snapshots).and_return(snapshot_resource)
         snapshot_resource.should_receive(:create).and_return(snapshot_resource)
         provider.send(:create_volume_snapshot, 'snapshot_name', 'volume_id')
@@ -374,10 +431,10 @@ describe Chef::Provider::RightscaleVolume do
 
     describe "#cleanup_snapshots" do
       before(:each) do
-        provider.stub(:find_volumes).and_return([].push(volume_resource))
+        provider.stub(:find_volumes).and_return(array_of(volume_resource))
         client_stub.stub(:volume_snapshots).and_return(snapshot_resource)
 
-        snapshot_resource.stub(:index).and_return([].push(snapshot_resource))
+        snapshot_resource.stub(:index).and_return(array_of(snapshot_resource))
       end
 
       context "max_snapshots equal to or more than the number of old available snapshots" do
@@ -396,9 +453,10 @@ describe Chef::Provider::RightscaleVolume do
     end
 
     describe "#instance_href" do
-    end
-
-    describe "#cloud_href" do
+      it "should return the href of the current instance" do
+        client_stub.should_receive(:get_instance).and_return(instance_stub)
+        provider.send(:instance_href)
+      end
     end
 
     describe "#get_current_devices" do
@@ -419,7 +477,17 @@ describe Chef::Provider::RightscaleVolume do
     end
 
     describe "#get_next_devices" do
-      #TODO
+      #TODO: better spec tests for different cloud providers
+      it "should return the number of devices requested" do
+        provider.stub(:get_current_devices).and_return(['/dev/sda', '/dev/sdb'])
+        node.set[:cloud][:provider] = 'some_cloud'
+
+        devices = provider.send(:get_next_devices, 1)
+        devices.should have(1).items
+
+        devices = provider.send(:get_next_devices, 2)
+        devices.should have(2).items
+      end
     end
 
     describe "#device_letter_exclusions" do
