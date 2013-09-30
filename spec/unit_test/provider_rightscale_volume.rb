@@ -370,6 +370,7 @@ describe Chef::Provider::RightscaleVolume do
         provider.stub(:get_current_devices).and_return(['device_1', 'device_2'])
 
         node.set[:virtualization][:system] = 'some_hypervisor'
+        node.set[:cloud][:provider] = 'some_cloud'
         volume_attachment_resource.stub(:state => 'attached')
         volume_stub.stub(:status => 'in-use')
 
