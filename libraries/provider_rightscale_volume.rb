@@ -1,10 +1,21 @@
 #
 # Cookbook Name:: rightscale_volume
+# Library:: provider_rightscale_volume
 #
-# Copyright RightScale, Inc. All rights reserved.
-# All access and use subject to the RightScale Terms of Service available at
-# http://www.rightscale.com/terms.php and, if applicable, other agreements
-# such as a RightScale Master Subscription Agreement.
+# Copyright (C) 2013 RightScale, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 
 require "chef/provider"
 
@@ -241,10 +252,7 @@ class Chef
       #
       def initialize_api_client(options = {})
         # Require gems in initialize
-        # We do it this way because the chef converge phase errors out due to
-        # unavailability of these gems. These gems are only installed in the
-        # network_storage_device::default recipe.
-        require_gems
+        require "right_api_client"
 
         require "/var/spool/cloud/user-data.rb"
         account_id, instance_token = ENV["RS_API_TOKEN"].split(":")
@@ -258,24 +266,6 @@ class Chef
         client = RightApi::Client.new(options)
         client.log(Chef::Log.logger)
         client
-      end
-
-      # Workaround to require gems during RightAPI::Client initialization so that
-      # the chef converge phase does not error due to unavailability of gems.
-      # Error msg: error occurred line 31 of
-      # /opt/rightscale/sandbox/lib/ruby/site_ruby/1.8/rubygems/custom_require.rb
-      #
-      # @raise [LoadError] if gems were not successfully loaded.
-      def require_gems
-        begin
-          require "right_api_client"
-          require "timeout"
-        rescue LoadError => e
-          msg = "Required gems were not loaded."
-          msg << " Please run 'rightscale_volume::default' recipe to install these gems"
-          display_exception(e, msg)
-          raise e
-        end
       end
 
       # Creates a new volume.
