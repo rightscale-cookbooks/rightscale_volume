@@ -7,6 +7,6 @@ version          IO.read(File.join(File.dirname(__FILE__), 'VERSION')) rescue '0
 
 depends 'rightscale_volume'
 depends 'marker'
-depends 'cookbooks-delayed_evaluator'
+depends 'cookbook-delayed_evaluator'
 
 recipe 'test-rightscale_volume::test', 'Test recipe for testing rightscale_volume cookbook'

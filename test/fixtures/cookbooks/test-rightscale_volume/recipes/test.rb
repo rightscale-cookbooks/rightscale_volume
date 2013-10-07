@@ -17,6 +17,8 @@
 # limitations under the License.
 #
 
+include_recipe 'rightscale_volume::default'
+
 # Include cookbook-delayed_evaluator for delaying evaluation of node attributes
 # to converge phase instead of compile phase
 include_recipe 'delayed_evaluator'
@@ -77,6 +79,7 @@ rightscale_volume 'test_device_1_DELETE_ME' do
 end
 
 # Ensure that the snapshot was created in the cloud
+snapshots_list = []
 ruby_block "ensure snapshot of volume 1 created" do
   block do
     # Call get_snapshots method to retrieve all snapshots of a volume
