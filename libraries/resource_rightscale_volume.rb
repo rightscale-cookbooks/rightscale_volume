@@ -47,7 +47,7 @@ class Chef
       # Snapshot name to be created
       attr_accessor :snapshot_name
 
-      # Number of snapshots to retain when running the :cleanup action
+      # Number of snapshots to retain when running the +:cleanup+ action
       attr_accessor :max_snapshots
 
       # Timeout value (in minutes) for rightscale_volume actions
@@ -158,7 +158,7 @@ class Chef
       # By default, this is set to 60.
       #
       # @param arg [Integer] the number of snapshots to retain when running the
-      # :cleanup action
+      # +:cleanup+ action
       #
       # @return [Integer] the number of snapshots to retain
       #

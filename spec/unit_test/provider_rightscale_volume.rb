@@ -140,10 +140,6 @@ describe Chef::Provider::RightscaleVolume do
       provider.current_resource = current_resource
     end
 
-  #TODO:
-  # 1) check if create call populated the node variables
-  # 2) check if node variable removed after delete call
-
     describe "#action_create" do
       context "volume does not exist" do
         it "should create the volume" do
@@ -193,7 +189,7 @@ describe Chef::Provider::RightscaleVolume do
 
           attached_device = '/dev/some_device'
           provider.stub(:device_letter_exclusions => [])
-          provider.should_receive(:get_next_devices).and_return(array_of('some_device'))
+          provider.should_receive(:get_next_device).and_return('some_device')
           provider.should_receive(:attach_volume).and_return(attached_device)
 
           volume_stub.stub(:status => 'in-use')
@@ -207,14 +203,14 @@ describe Chef::Provider::RightscaleVolume do
           create_test_volume
 
           current_resource.state = 'in-use'
-          provider.should_not_receive(:get_next_devices)
+          provider.should_not_receive(:get_next_device)
           provider.run_action(:attach)
         end
       end
 
       context "volume to be attached does not exist" do
         it "should not attach the volume" do
-          provider.should_not_receive(:get_next_devices)
+          provider.should_not_receive(:get_next_device)
           provider.run_action(:attach)
         end
       end
@@ -225,14 +221,14 @@ describe Chef::Provider::RightscaleVolume do
         it "should take a snapshot of the volume" do
           create_test_volume
 
-          provider.should_receive(:create_volume_snapshot).and_return(snapshot_stub)
+          provider.should_receive(:create_snapshot).and_return(snapshot_stub)
           provider.run_action(:snapshot)
         end
       end
 
       context "volume to be snapshotted does not exist" do
         it "should not take a snapshot of the volume" do
-          provider.should_not_receive(:create_volume_snapshot)
+          provider.should_not_receive(:create_snapshot)
           provider.run_action(:snapshot)
         end
       end
@@ -326,7 +322,6 @@ describe Chef::Provider::RightscaleVolume do
     end
 
     describe "#create_volume" do
-
       before(:each) do
         volume_resource.stub(:create).and_return(volume_resource)
       end
@@ -385,7 +380,7 @@ describe Chef::Provider::RightscaleVolume do
     describe "#attach_volume" do
       it "should attach the volume to an instance" do
         provider.stub(:find_volumes).and_return(array_of(volume_resource))
-        provider.stub(:instance_href).and_return(instance_stub)
+        client_stub.stub(:get_instance).and_return(instance_stub)
         provider.stub(:get_current_devices).and_return(['device_1', 'device_2'])
 
         node.set[:virtualization][:system] = 'some_hypervisor'
@@ -421,7 +416,7 @@ describe Chef::Provider::RightscaleVolume do
       # correct ones
       #
       it "should return the attached volumes based on the given filter" do
-        provider.stub(:instance_href).and_return('some_href')
+        client_stub.stub(:get_instance).and_return(instance_stub)
         client_stub.should_receive(:volume_attachments).and_return(volume_attachment_resource)
         volume_attachment_resource.stub(:index).and_return(array_of(volume_attachment_resource))
         attachments = provider.send(:volume_attachments)
@@ -440,21 +435,26 @@ describe Chef::Provider::RightscaleVolume do
       end
     end
 
-    describe "#create_volume_snapshot" do
+    describe "#create_snapshot" do
       it "should create a snapshot of the given volume" do
         provider.stub(:find_volumes).and_return(array_of(volume_resource))
         client_stub.should_receive(:volume_snapshots).and_return(snapshot_resource)
         snapshot_resource.should_receive(:create).and_return(snapshot_resource)
-        provider.send(:create_volume_snapshot, 'snapshot_name', 'volume_id')
+        provider.send(:create_snapshot, 'snapshot_name', 'volume_id')
+      end
+    end
+
+    describe "#get_snapshots" do
+      it "should get all the snapshots of the given volume" do
+        provider.stub(:find_volumes).and_return(array_of(volume_resource))
+        client_stub.should_receive(:volume_snapshots).and_return(snapshot_resource)
+        provider.send(:get_snapshots, 'volume_id')
       end
     end
 
     describe "#cleanup_snapshots" do
       before(:each) do
-        provider.stub(:find_volumes).and_return(array_of(volume_resource))
-        client_stub.stub(:volume_snapshots).and_return(snapshot_resource)
-
-        snapshot_resource.stub(:index).and_return(array_of(snapshot_resource))
+        provider.stub(:get_snapshots).and_return(array_of(snapshot_resource))
       end
 
       context "max_snapshots equal to or more than the number of old available snapshots" do
@@ -472,16 +472,19 @@ describe Chef::Provider::RightscaleVolume do
       end
     end
 
-    describe "#instance_href" do
-      it "should return the href of the current instance" do
-        client_stub.should_receive(:get_instance).and_return(instance_stub)
-        provider.send(:instance_href)
-      end
-    end
-
     describe "#get_current_devices" do
-    # TODO: This assumes /proc/partitions exist
-      let(:devices) { provider.send(:get_current_devices) }
+      let(:devices) do
+        proc_partitions = [
+          'major minor  #blocks  name',
+          '',
+          '1        0  123456789 xvda',
+          '1        1     123456 xvda1',
+          '2        0    1234567 dm-0',
+          '3        0    1234567 dm-1'
+        ]
+        IO.stub(:readlines).and_return(proc_partitions)
+        provider.send(:get_current_devices)
+      end
 
       it "should return at least one partition" do
         devices.should have_at_least(1).items
@@ -496,17 +499,48 @@ describe Chef::Provider::RightscaleVolume do
       end
     end
 
-    describe "#get_next_devices" do
-      #TODO: better spec tests for different cloud providers
-      it "should return the number of devices requested" do
-        provider.stub(:get_current_devices).and_return(['/dev/sda', '/dev/sdb'])
+    describe "#get_next_device" do
+      it "should return the next available device" do
         node.set[:cloud][:provider] = 'some_cloud'
 
-        devices = provider.send(:get_next_devices, 1)
-        devices.should have(1).items
+        provider.stub(:get_current_devices).and_return(['/dev/sda', '/dev/sdb'])
+        device = provider.send(:get_next_device)
+        device.should == '/dev/sdc'
 
-        devices = provider.send(:get_next_devices, 2)
-        devices.should have(2).items
+        provider.stub(:get_current_devices).and_return(['/dev/sda', '/dev/sdb'])
+        device_exclusions = ('c' .. 'g')
+        device = provider.send(:get_next_device, device_exclusions)
+        device.should == '/dev/sdh'
+
+        provider.stub(:get_current_devices).and_return(['/dev/sda1', '/dev/sda2', '/dev/sda3'])
+        device = provider.send(:get_next_device)
+        device.should == '/dev/sda4'
+      end
+
+      context "when the partitions in /proc/partitions are of unknown type" do
+        it "should raise an error" do
+          node.set[:cloud][:provider] = 'some_cloud'
+          provider.stub(:get_current_devices).and_return(['/dev/vcs', '/dev/vcs1'])
+          expect {
+            provider.send(:get_next_device)
+          }.to raise_error(RuntimeError, "unknown partition/device name: /dev/vcs")
+        end
+      end
+
+      context "when the cloud provider is ec2" do
+        it "should not return the device as anything between (s|xv|h)da and (s|xv|h)de" do
+          node.set[:cloud][:provider] = 'ec2'
+          provider.stub(:get_current_devices).and_return(['/dev/sda', '/dev/sdb'])
+          device = provider.send(:get_next_device)
+          device.should == '/dev/sdf'
+        end
+
+        it "should not return the device as anything between xvda and xvde if the instance is of HVM type" do
+          node.set[:cloud][:provider] = 'ec2'
+          provider.stub(:get_current_devices).and_return(['/dev/hda'])
+          device = provider.send(:get_next_device)
+          device.should == '/dev/xvdf'
+        end
       end
     end
 
@@ -519,9 +553,11 @@ describe Chef::Provider::RightscaleVolume do
       end
 
       context "when the cloud provider is cloudstack" do
-        it "should return an array with one element" do
+        it "should return an array with one element and the element must be 'd'" do
           node.set[:cloud][:provider] = 'cloudstack'
-          provider.send(:device_letter_exclusions).should have_at_most(1).items
+          exclusions = provider.send(:device_letter_exclusions)
+          exclusions.should have_at_most(1).items
+          exclusions.should include('d')
         end
       end
     end

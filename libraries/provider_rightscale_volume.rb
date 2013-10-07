@@ -136,18 +136,14 @@ class Chef
 
         Chef::Log.info "Attaching volume '#{@current_resource.name}'..."
 
-        attached_device = nil
-        get_next_devices(1, device_letter_exclusions).map! do |device|
-          attached_device = attach_volume(@current_resource.volume_id, device)
-        end
-        @current_resource.device = attached_device
+        @current_resource.device = attach_volume(@current_resource.volume_id, get_next_device(device_letter_exclusions))
         volume = find_volumes(:resource_uid => @current_resource.volume_id).first
         @current_resource.state = volume.show.status
 
         # Store all information in node variable
         save_device_hash
         @new_resource.updated_by_last_action(true)
-        Chef::Log.info "Volume '#{@current_resource.name}' successfully attached to '#{attached_device}'"
+        Chef::Log.info "Volume '#{@current_resource.name}' successfully attached to '#{@current_resource.device}'"
       end
 
       # Detaches a volume from the device.
@@ -192,7 +188,7 @@ class Chef
 
         snapshot_name = @current_resource.name
         snapshot_name = @new_resource.snapshot_name if @new_resource.snapshot_name
-        snapshot = create_volume_snapshot(snapshot_name, @current_resource.volume_id)
+        snapshot = create_snapshot(snapshot_name, @current_resource.volume_id)
 
         # Store all information in node variable
         save_device_hash
@@ -355,6 +351,9 @@ class Chef
         when "rackspace-ng"
           # Rackspace Open Cloud offers two types of devices - SATA and SSD
           volume_types = @api_client.volume_types.index
+
+          # Set SATA as the default volume type for Rackspace Open Cloud
+          options[:volume_type] = 'SATA' if options[:volume_type].nil?
           volume_type = volume_types.detect { |type| type.name == options[:volume_type] }
           volume_type.href
 
@@ -403,8 +402,6 @@ class Chef
           end
 
           volume_type.href
-        else
-          nil
         end
       end
 
@@ -454,14 +451,14 @@ class Chef
       # @raise [Timeout:Error] if the volume attach takes longer than the time out value
       #
       def attach_volume(volume_id, device)
-        # Get volume by Resource UID
+        # Get volume that needs to be attached by its resource UID
         volume = find_volumes(:resource_uid => volume_id).first
 
         # Set required paramters
         params = {
           :volume_attachment => {
             :volume_href => volume.show.href,
-            :instance_href => instance_href,
+            :instance_href => @api_client.get_instance.href,
             :device => device
           }
         }
@@ -477,9 +474,11 @@ class Chef
           end
         end
 
+        # Grab the list of devices in use before attaching the volume so that
+        # we can find the actual device after attachment
         current_devices = get_current_devices
 
-        Chef::Log.info "Request volume attachment. params = #{params.inspect}"
+        Chef::Log.info "Requesting volume attachment with params = #{params.inspect}"
 
         Timeout::timeout(@current_resource.timeout * 60) do
           begin
@@ -496,15 +495,15 @@ class Chef
 
           # Wait for volume to attach and become "in-use"
           begin
-            name = volume.show.name
-            status = volume.show.status
-            state = attachment.show.state
-            while status != "in-use" && state != "attached"
-              Chef::Log.info "Waiting for volume '#{name}' to attach..."
-              Chef::Log.info "Volume Status: #{status}, Attachment State: #{state}"
+            volume_details = volume.show
+            volume_status = volume_details.status
+            attachment_state = attachment.show.state
+            while volume_status != "in-use" && attachment_state != "attached"
+              Chef::Log.info "Waiting for volume '#{volume_details.name}' to attach... Status is '#{volume_status}'..."
+              Chef::Log.info "Volume attachment state is '#{attachment_state}'"
               sleep 2
-              status = volume.show.status
-              state = attachment.show.state
+              volume_status = volume.show.status
+              attachment_state = attachment.show.state
             end
           rescue RestClient::Exception => e
             if e.http_code == 504
@@ -518,9 +517,7 @@ class Chef
         end
 
         # Determine the actual device name
-        actual_device = (Set.new(get_current_devices) - current_devices).first
-        Chef::Log.info "Device = #{device}, Actual_device = #{actual_device}" unless device == actual_device
-        actual_device
+        (Set.new(get_current_devices) - current_devices).first
       end
 
       # Finds volumes using the given filters.
@@ -568,35 +565,33 @@ class Chef
       # @return [RightApi::Resources] the volume attachments
       #
       def volume_attachments(filters = {})
-        filter = ["instance_href==#{instance_href}"] + build_filters(filters)
+        filter = ["instance_href==#{@api_client.get_instance.href}"] + build_filters(filters)
         @api_client.volume_attachments.index(:filter => filter).reject do |attachment|
           attachment.show.device.include? "unknown"
         end
       end
 
-      # Detaches a volume from the device
+      # Detaches a volume from the device.
       #
       # @param volume_id [String] the resource UID of the volume to be detached
       #
       # @raise [Timeout::Error] if detaching volumes take longer than the time out value
       #
       def detach_volume(volume_id)
-        Chef::Log.info "Preparing for volume detach"
+        # Using the resource ID of the volume to be detached find its corresponding
+        # volume attachment using the API
         volume = find_volumes(:resource_uid => volume_id).first
         attachments = volume_attachments(:volume_href => volume.href)
 
         attachments.map do |attachment|
           volume = attachment.volume
-          status = volume.show.status
-          state = attachment.show.state
-          name = volume.show.name
-          Chef::Log.info "Volume staus: '#{status}', Attachment state: '#{state}'"
-
+          volume_details = volume.show
+          Chef::Log.info "Volume #{volume_details.name} is '#{volume_details.status}'"
           Chef::Log.info "Performing volume detach..."
           Timeout::timeout(@current_resource.timeout * 60) do
             attachment.destroy
-            while ((status = volume.show.status) == "in-use")
-              Chef::Log.info "Waiting for volume '#{name}' to detach... Status is '#{status}'"
+            while (volume_status = volume.show.status) == "in-use"
+              Chef::Log.info "Waiting for volume '#{volume_details.name}' to detach. Status is '#{volume_status}'..."
               sleep 2
             end
           end
@@ -614,9 +609,7 @@ class Chef
       # @raise [RuntimeError] if snapshot creation failed
       # @raise [Timeout::Error] if snapshot creation takes longer than the time out value
       #
-      def create_volume_snapshot(snapshot_name, volume_id)
-        Chef::Log.info "Preparing for volume snapshot..."
-
+      def create_snapshot(snapshot_name, volume_id)
         volume = find_volumes(:resource_uid => volume_id).first
         params = {
           :volume_snapshot => {
@@ -640,6 +633,17 @@ class Chef
         snapshot.show
       end
 
+      # Gets all snapshots taken from the given volume.
+      #
+      # @param volume_id [String] the resoure UID of the volume
+      #
+      # @return [<RightApi::Resource>Array] the list of snapshots
+      #
+      def get_snapshots(volume_id)
+        volume = find_volumes(:resource_uid => volume_id).first
+        @api_client.volume_snapshots.index(:filter => ["parent_volume_href==#{volume.href}"])
+      end
+
       # Deletes old snapshots of a specified volume that exceeds the maximum number of snapshots
       # to keep for that volume.
       #
@@ -651,11 +655,9 @@ class Chef
       # @raise [Timeout::Error] if snapshot deletion takes longer than the time out value
       #
       def cleanup_snapshots(volume_id, max_snapshots_to_keep)
-        volume = find_volumes(:resource_uid => volume_id).first
+        available_snapshots = get_snapshots(volume_id)
 
-        # Find all "available" or "failed" snapshots created from specified
-        # volume. Snapshots found are sorted from oldest to latest.
-        available_snapshots = @api_client.volume_snapshots.index(:filter => ["parent_volume_href==#{volume.href}"])
+        # Sort the snapshots found from oldest to latest
         available_snapshots = available_snapshots.sort_by { |snapshot| snapshot.show.updated_at }
 
         num_deleted = 0
@@ -667,25 +669,26 @@ class Chef
         if num_available_snapshots <= max_snapshots_to_keep
           Chef::Log.info "Number of available snapshots (#{num_available_snapshots}) is less than or equal to maximum" +
             " number of snapshots to keep (#{max_snapshots_to_keep})."
-          Chef::Log.info  "No snapshots were deleted."
+          Chef::Log.info "No snapshots were deleted."
 
         else
           num_snapshots_to_delete = num_available_snapshots - max_snapshots_to_keep
 
+          Chef::Log.info "Performing snapshot cleanup..."
           available_snapshots.each do |snapshot|
             # End condition for this loop
             break if num_deleted == num_snapshots_to_delete
 
+            snapshot_details = snapshot.show
             # Skip over snapshots that are not available for deletion.
-            state = snapshot.show.state
-            if state == "pending"
-              Chef::Log.info "Snapshot #{snapshot.show.name} (ID:#{snapshot.show.resource_uid})" +
-                " is not available for deletion. Snapshot state is '#{state}'"
+            if snapshot_details.state == "pending"
+              Chef::Log.info "Snapshot #{snapshot_details.name} (ID:#{snapshot_details.resource_uid})" +
+                " is not available for deletion. Snapshot state is '#{snapshot_details.state}'"
               next
             end
 
             # Delete snapshot if they are available
-            Chef::Log.info "Deleting snapshot '#{snapshot.show.name} (ID: #{snapshot.show.resource_uid})'..."
+            Chef::Log.info "Deleting snapshot '#{snapshot_details.name} (ID: #{snapshot_details.resource_uid})'..."
             Timeout::timeout(@current_resource.timeout * 60) do
               snapshot.destroy
             end
@@ -693,14 +696,6 @@ class Chef
           end
         end
         num_deleted
-      end
-
-      # Gets the instance href.
-      #
-      # @return [String] the instance href.
-      #
-      def instance_href
-        @instance_href ||= @api_client.get_instance.href
       end
 
       # Attempts to display any http response related information about the
@@ -726,30 +721,33 @@ class Chef
       # @return [Array] the devices list.
       #
       def get_current_devices
-        partitions = IO.readlines("/proc/partitions").drop(2).map do |line|
-          line.chomp.split.last
-        end
+        # Read devices that are currently in use from the last column in /proc/partitions
+        partitions = IO.readlines("/proc/partitions").drop(2).map { |line| line.chomp.split.last }
+
+        # Eliminate all LVM partitions
         partitions = partitions.reject { |partition| partition =~ /^dm-\d/ }
 
-        devices = partitions.select { |partition| partition =~ /[a-z]$/ }
-        devices = devices.sort.map { |device| "/dev/#{device}" }
+        # Get all the devices in the form of sda, xvda, hda, etc.
+        devices = partitions.select { |partition| partition =~ /[a-z]$/ }.sort.map { |device| "/dev/#{device}" }
+
+        # If no devices found in those forms, check for devices in the form of sda1, xvda1, hda1, etc.
         if devices.empty?
-          devices = partitions.select { |partition| partition =~ /[0-9]$/ }
-          devices = devices.sort.map { |device| "/dev/#{device}" }
+          devices = partitions.select { |partition| partition =~ /[0-9]$/ }.sort.map { |device| "/dev/#{device}" }
         end
+
         devices
       end
 
-      # Obtains next available devices.
+      # Obtains the next available device.
       #
-      # @param count [Integer] the number of devices
       # @param exclusions [Array] the devices to exclude
       #
-      # @return [Array] the available devices
+      # @return [String] the available device
       #
       # @raise [RuntimeError] if the partition is unknown
       #
-      def get_next_devices(count, exclusions = [])
+      def get_next_device(exclusions = [])
+        # Get the list of currently used devices
         partitions = get_current_devices
 
         # The AWS EBS documentation recommends using /dev/sd[f-p] for attaching volumes.
@@ -760,44 +758,48 @@ class Chef
           partitions << "/dev/#{$1}de"
         end
 
-        devices = []
+        # The current devices are in the form of sda, hda, xvda, etc.
         if partitions.first =~ /^\/dev\/([a-z]+d)[a-z]+$/
-          type = $1
+          device_type = $1
 
-          if node[:cloud][:provider] == 'ec2' && type == 'hd'
+          # Get the device letter of the last device in the list of current devices
+          partitions.select do |partition|
+            partition =~ /^\/dev\/#{device_type}[a-z]+$/
+          end.last =~ /^\/dev\/#{device_type}([a-z]+)$/
+
+          last_device_letter_in_use = $1
+
+          if node[:cloud][:provider] == 'ec2' && device_type == 'hd'
             # This is probably HVM
             hvm = true
             # Root device is /dev/hda on HVM images, but volumes are xvd in /proc/partitions,
             # but can be referenced as sd also (mount shows sd) - PS
-            type.sub!('hd','xvd')
+            device_type.sub!('hd','xvd')
           end
+
+          # This is a HVM image, need to start at xvdf at least
+          letters = hvm ? (['e', last_device_letter_in_use].max .. 'zzz') : (last_device_letter_in_use .. 'zzz')
+
+          # Get the device letter next to the last device letter in use
+          device_letter = letters.select { |letter| letter != letters.first && !exclusions.include?(letter) }.first
+
+        # The current devices are in the form sda1, xvdb1, etc.
+        elsif partitions.first =~ /^\/dev\/([a-z]+d[a-z]*)\d+$/
+          device_type = $1
 
           partitions.select do |partition|
-            partition =~ /^\/dev\/#{type}[a-z]+$/
-          end.last =~ /^\/dev\/#{type}([a-z]+)$/
+            partition =~ /^\/dev\/#{device_type}\d+$/
+          end.last =~ /^\/dev\/#{device_type}(\d+)$/
 
-          if hvm
-            # This is a HVM image, need to start at sdf at least
-            letters = (['e', $1].max .. 'zzz')
-          else
-            letters = ($1 .. 'zzz')
-          end
-          devices = letters.select do |letter|
-            letter != letters.first && !exclusions.include?(letter) && count != -1 && (count -= 1) != -1
-          end
-        elsif partitions.first =~ /^\/dev\/([a-z]+d[a-z]*)\d+$/
-          type = $1
-          devices = partitions.select do |partition|
-            partition =~ /^\/dev\/#{type}\d+$/
-          end.last =~ /^\/dev\/#{type}(\d+)$/
-          number = $1.to_i
-          (number + 1 .. number + count)
+          last_device_letter_in_use = $1.to_i
+
+          # Get the device letter (number in this case) next to the last device letter in use
+          device_letter = last_device_letter_in_use + 1
         else
           raise "unknown partition/device name: #{partitions.first}"
         end
-        devices.map! { |letter| "/dev/#{type}#{letter}" }
 
-        devices
+        "/dev/#{device_type}#{device_letter}"
       end
 
       # Returns a list of device exclusions due to some hypervisors having "holes" in their attachable device list.
@@ -808,7 +810,7 @@ class Chef
         exclusions = []
         # /dev/xvdd is assigned to the cdrom device eg., xentools iso (xe-guest-utilities)
         # that is likely a xenserver-ism
-        exclusions = ["d"] if node[:cloud][:provider] == "cloudstack"
+        exclusions = ['d'] if node[:cloud][:provider] == 'cloudstack'
         exclusions
       end
 
@@ -817,7 +819,7 @@ class Chef
       def scan_for_attachments
         # vmware/esx requires the following "hack" to make OS/Linux aware of device
         # Check for /sys/class/scsi_host/host0/scan if need to run
-        if ::File.exist?("/sys/class/scsi_host/host0/scan")
+        if ::File.exist?('/sys/class/scsi_host/host0/scan')
           cmd = Mixlib::ShellOut.new("echo '- - -' > /sys/class/scsi_host/host0/scan")
           cmd.run_command
           sleep 5
