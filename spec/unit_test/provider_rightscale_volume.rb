@@ -166,7 +166,7 @@ describe Chef::Provider::RightscaleVolume do
               volume_stub.size,
               volume_stub.description,
               snapshot_id,
-              nil
+              {}
             ).and_return(volume_stub)
             provider.run_action(:create)
           end

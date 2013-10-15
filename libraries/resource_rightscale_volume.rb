@@ -199,7 +199,8 @@ class Chef
         set_or_return(
           :options,
           arg,
-          :kind_of => Hash
+          :kind_of => Hash,
+          :default => {}
         )
       end
     end

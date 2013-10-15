@@ -1,0 +1,3 @@
+knife: bundle exec knife cookbook test $COOKBOOK
+foodcritic: bundle exec foodcritic --epic-fail any --tags ~FC019 $SANDBOX/$COOKBOOK
+spec: bundle exec rspec spec/**/*.rb --color

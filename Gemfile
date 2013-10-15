@@ -4,7 +4,10 @@ gem 'berkshelf'
 gem 'thor-foodcritic'
 gem 'thor-scmversion'
 gem 'right_api_client'
-gem 'chefspec'
-gem 'test-kitchen', '~> 1.0.0.beta.3', :group => :integration
-gem 'kitchen-vagrant', :group => :integration
 gem 'rightscale_upload', :github => 'douglaswth/rightscale_upload'
+
+group :integration do
+  gem 'strainer', '~> 3.3.0'
+  gem 'chefspec', '~> 1.3.0'
+  gem 'rspec', '~> 2.14.1'
+end

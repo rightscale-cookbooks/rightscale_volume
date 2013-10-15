@@ -511,7 +511,7 @@ class Chef
               sleep 2
               retry
             end
-            display_exception(e, "#{e.message}")
+            display_exception(e, e.message)
             raise e
           end
         end
