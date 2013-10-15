@@ -17,32 +17,31 @@
 # limitations under the License.
 #
 
+class Chef::Resource
+  include RightscaleVolumeTest::Helper
+end
+
 include_recipe 'rightscale_volume::default'
 
 # Include cookbook-delayed_evaluator for delaying evaluation of node attributes
 # to converge phase instead of compile phase
 include_recipe 'delayed_evaluator'
 
-# Create an instance of RightscaleVolume provider to access private helper methods using 'send'
-# See rightscale_volume/libraries/provider_rightscale_volume.rb for more information
-provider = Chef::Provider::RightscaleVolume.new('test', nil)
-
 # Set minimum volume size to 100GB for Rackspace Open Clouds (cloud-specific feature)
-volume_size = node[:cloud][:provider] == 'rackspace-ng' ? 100 : 10
+volume_size = node[:cloud][:provider] == 'rackspace-ng' ? 100 : 1
 
+# Set the volume name with the current UNIX timestamp so that multiple test runs
+# do not overlap each other in case of failures
+timestamp = Time.now.to_i
+test_volume_1 = "test_device_1_#{timestamp}_DELETE_ME"
+test_volume_2 = "test_device_2_#{timestamp}_DELETE_ME"
 
 # *** Testing actions supported by the rightscale_volume cookbook ***
 
-
-# --- TESTING 'action_create' - creates a new volume in the cloud ---
-
-# Add a visual marker in the Chef logs for better log readability
-marker 'creating volume 1' do
-  template 'rightscale_audit_entry.erb'
-end
+log '***** TESTING action_create - create volume 1 *****'
 
 # Create volume 1 using the rightscale_volume cookbook
-rightscale_volume 'test_device_1_DELETE_ME' do
+rightscale_volume test_volume_1 do
   size volume_size
   description "test device created from rightscale_volume cookbook"
   action :create
@@ -51,92 +50,112 @@ end
 # Ensure that the volume was created in the cloud
 ruby_block "ensure volume 1 created" do
   block do
-    # Call find_volumes method to retrieve specific volumes in the cloud
-    # See 'find_volumes' method in rightscale_volume/libraries/provider_rightscale_volume.rb for more information
-    created_volume = provider.send(
-      :find_volumes,
-      # 'lazy' block ensures the node attribute is evaluated during converge phase
-      :resource_uid => lazy{ node['rightscale_volume']['test_device_1_DELETE_ME']['volume_id'] }
-    )
-    raise 'Volume creation failed!' if created_volume.empty?
+    if is_volume_created?(node['rightscale_volume'][test_volume_1]['volume_id'])
+      Chef::Log.info 'TESTING action_create -- PASSED'
+    else
+      raise 'TESTING action_create -- FAILED'
+    end
   end
 end
 
-# --- END TESTING 'action_create' ---
 
+log '***** TESTING action_attach - attach volume 1 *****'
 
-# --- TESTING 'action_snapshot' - takes a snapshot of the volume ---
-
-# Add a visual marker in the Chef logs for better log readability
-marker 'taking a snapshot of volume 1' do
-  template 'rightscale_audit_entry.erb'
+# Attach volume 1
+rightscale_volume test_volume_1 do
+  action :attach
 end
 
+# Ensure that volume 1 is attached to the instance
+ruby_block 'ensure volume 1 attached' do
+  block do
+    if is_volume_attached?(node['rightscale_volume'][test_volume_1]['volume_id'])
+      Chef::Log.info 'TESTING action_attach -- PASSED'
+    else
+      raise 'TESTING action_attach -- FAILED'
+    end
+  end
+end
+
+ruby_block 'mount volume and generate random test file' do
+  block do
+    format_and_mount_device(node['rightscale_volume'][test_volume_1]['device'])
+    generate_test_file
+  end
+end
+
+
+log '***** TESTING action_snapshot - snasphot volume 1 *****'
+
 # Take a snapshot of volume 1
-rightscale_volume 'test_device_1_DELETE_ME' do
-  snapshot_name 'test_device_DELETE_ME_snapshot'
+rightscale_volume test_volume_1 do
+  snapshot_name "#{test_volume_1}_snapshot"
   action :snapshot
 end
 
 # Ensure that the snapshot was created in the cloud
-snapshots_list = []
 ruby_block "ensure snapshot of volume 1 created" do
   block do
-    # Call get_snapshots method to retrieve all snapshots of a volume
-    # See 'get_snapshots' method in rightscale_volume/libraries/provider_rightscale_volume.rb for more information
-    snapshots_list = provider.send(
-      :get_snapshots,
-      # 'lazy' block ensures the node attribute is evaluated during converge phase
-      lazy { node['rightscale_volume']['test_device_1_DELETE_ME']['volume_id'] }
-    )
-    raise 'No snapshots were created for this volume' if snapshots_list.empty?
+    if is_snapshot_created?(node['rightscale_volume'][test_volume_1]['volume_id'])
+      Chef::Log.info 'TESTING action_snapshot -- PASSED'
+    else
+      raise 'TESTING action_snapshot -- FAILED'
+    end
   end
 end
 
-# --- END TESTING 'action_snapshot' ---
 
+log '***** TESTING action_detach - detach volume 1 *****'
 
-# --- TESTING 'action_create' - creates a new volume from a snapshot in the cloud ---
-
-# Add a visual marker in the Chef logs for better log readability
-marker 'creating volume 2 from the snapshot' do
-  template 'rightscale_audit_entry.erb'
+ruby_block 'unmount device' do
+  block do
+    unmount_device(node['rightscale_volume'][test_volume_1]['device'])
+  end
 end
 
+# Detach volume 1
+rightscale_volume test_volume_1 do
+  action :detach
+end
+
+# Ensure that volume 1 is detached from the instance
+ruby_block 'ensure volume 1 detached' do
+  block do
+    if is_volume_detached?(node['rightscale_volume'][test_volume_1]['volume_id'])
+      Chef::Log.info 'TESTING action_detach -- PASSED'
+    else
+      raise 'TESTING action_detach -- FAILED'
+    end
+  end
+end
+
+
+log '***** TESTING action_create from snapshot - create volume 2 *****'
+
 # Create volume 2 from the snapshot of volume 1
-rightscale_volume 'test_device_2_DELETE_ME' do
+rightscale_volume test_volume_2 do
   size volume_size
   description "test device created from rightscale_volume cookbook"
-  snapshot_id snapshots_list.first.show.resource_uid
+  snapshot_id lazy{ get_snapshots(node['rightscale_volume'][test_volume_1]['volume_id']).first.show.resource_uid }
   action :create
 end
 
-# Ensure that the volume was created in the cloud
+# Ensure that the volume 2 was created in the cloud
 ruby_block "ensure volume 2 created from snapshot" do
   block do
-    # Call find_volumes method to retrieve specific volumes in the cloud
-    # See 'find_volumes' method in rightscale_volume/libraries/provider_rightscale_volume.rb for more information
-    created_volume = provider.send(
-      :find_volumes,
-      # 'lazy' block ensures the node attribute is evaluated during converge phase
-      :resource_uid => lazy { node['rightscale_volume']['test_device_2_DELETE_ME']['volume_id'] }
-    )
-    raise 'Volume creation from snapshot failed!' if created_volume.empty?
+    if is_volume_created?(node['rightscale_volume'][test_volume_2]['volume_id'])
+      Chef::Log.info 'TESTING action_create from snapshot -- PASSED'
+    else
+      raise 'TESTING action_create from snapshot -- FAILED'
+    end
   end
 end
 
-# --- END TESTING 'action_create' ---
 
-
-# --- TESTING 'action_cleanup' - cleans up old snapshots of a volume ---
-
-# Add a visual marker in the Chef logs for better log readability
-marker 'cleanup existing snapshots for volume 1' do
-  template 'rightscale_audit_entry.erb'
-end
+log '***** TESTING action_cleanup - delete snapshots of volume 1 *****'
 
 # Clean up snapshots taken from volume 1
-rightscale_volume 'test_device_1_DELETE_ME' do
+rightscale_volume test_volume_1 do
   max_snapshots 0
   action :cleanup
 end
@@ -144,135 +163,83 @@ end
 # Ensure that the snapshots got cleaned up
 ruby_block 'ensure volume 1 snapshots cleaned up' do
   block do
-    # Call get_snapshots method to retrieve all snapshots of a volume
-    # See 'get_snapshots' method in rightscale_volume/libraries/provider_rightscale_volume.rb for more information
-    snapshots_list = provider.send(
-      :get_snapshots,
-      # 'lazy' block ensures the node attribute is evaluated during converge phase
-      lazy { node['rightscale_volume']['test_device_1_DELETE_ME']['volume_id'] }
-    )
-    raise 'No snapshots were created for this volume' unless snapshots_list.empty?
+    if is_snapshots_cleaned_up?(node['rightscale_volume'][test_volume_1]['volume_id'])
+      Chef::Log.info 'TESTING action_cleanup -- PASSED'
+    else
+      raise 'TESTING action_cleanup -- FAILED'
+    end
   end
 end
 
-# --- END TESTING 'action_cleanup' ---
 
-
-# --- TESTING 'action_delete' - deletes a volume from the cloud ---
-
-# Store the volume_id in the node to a temporary variable since deleting the volume
-# will also destroy all information in the node
-# 'lazy' block ensures the node attribute is evaluated during converge phase
-volume_id = lazy { node['rightscale_volume']['test_device_1_DELETE_ME']['volume_id'] }
-
-# Add a visual marker in the Chef logs for better log readability
-marker 'deleting volume 1' do
-  template 'rightscale_audit_entry.erb'
-end
-
-# Delete volume 1
-rightscale_volume 'test_device_1_DELETE_ME' do
-  action :delete
-end
-
-# Ensure that volume 1 was deleted from the cloud
-ruby_block 'ensure volume 1 deleted' do
-  block do
-    # Call find_volumes method to retrieve specific volumes in the cloud
-    # See 'find_volumes' method in rightscale_volume/libraries/provider_rightscale_volume.rb for more information
-    volume = provider.send(:find_volumes, :resource_uid => volume_id)
-    raise 'Volume was not successfully deleted' unless volume.nil?
-  end
-end
-
-# --- END TESTING 'action_delete' ---
-
-
-# --- TESTING 'action_attach' - attach volumes to a RightScale instance ---
-
-devices_before_attach = []
-ruby_block 'get devices before attach' do
-  block do
-    # Call attached_devices method to get a list of volumes attached to the instance before attaching a new volume
-    # See 'attached_devices' method in rightscale_volume/libraries/provider_rightscale_volume.rb for more information
-    devices_before_attach = provider.send(:attached_devices)
-  end
-end
-
-# Add a visual marker in the Chef logs for better log readability
-marker 'attaching volume 2' do
-  template 'rightscale_audit_entry.erb'
-end
+log '***** TESTING action_attach - attach volume 2 *****'
 
 # Attach volume 2
-rightscale_volume 'test_device_2_DELETE_ME' do
+rightscale_volume test_volume_2 do
   action :attach
 end
 
 # Ensure that volume 2 is attached to the instance
 ruby_block 'ensure volume 2 attached' do
   block do
-    # Call attached_devices method to get a list of volumes attached to an instance after the attach action
-    devices_after_attach = provider.send(:attached_devices)
-    raise 'Volume was not attached successfully!' if devices_after_attach.size == devices_before_attach.size
+    if is_volume_attached?(node['rightscale_volume'][test_volume_2]['volume_id'])
+      Chef::Log.info 'TESTING action_attach -- PASSED'
+    else
+      raise 'TESTING action_attach -- FAILED'
+    end
   end
 end
 
-# --- END TESTING 'action_attach' ---
 
-
-# --- TESTING 'action_detach' - detaches a volume from the instance ---
-
-devices_before_detach = []
-ruby_block 'get devices before detach' do
-  block do
-    # Call attached_devices method to get a list of volumes attached to the instance before detaching a volume
-    devices_before_detach = provider.send(:attached_devices)
-  end
-end
-
-# Add a visual marker in the Chef logs for better log readability
-marker 'detaching volume 2' do
-  template 'rightscale_audit_entry.erb'
-end
+log '***** TESTING action_detach - detach volume 2 *****'
 
 # Detach volume 2
-rightscale_volume 'test_device_2_DELETE_ME' do
+rightscale_volume test_volume_2 do
   action :detach
 end
 
-# Ensure that volume 2 is detached from the instance
+# Ensure that volume 1 is detached from the instance
 ruby_block 'ensure volume 2 detached' do
   block do
-    # Call attached_devices method to get a list of volumes attached to the instance after detaching a volume
-    devices_after_detach = provider.send(:attached_devices)
-    raise 'Volume was not detached successfully!' unless devices_after_detach.size == devices_before_detach.size
+    if is_volume_detached?(node['rightscale_volume'][test_volume_2]['volume_id'])
+      Chef::Log.info 'TESTING action_detach -- PASSED'
+    else
+      raise 'TESTING action_detach -- FAILED'
+    end
   end
 end
 
-# --- END TESTING 'action_detach' ---
 
+log '***** TESTING action_delete - delete volume 1 and volume 2 *****'
 
-# --- TESTING 'action_delete' - deletes a volume from the cloud ---
+# Delete volume 1
+rightscale_volume test_volume_1 do
+  action :delete
+end
 
-# Add a visual marker in the Chef logs for better log readability
-marker 'deleting volume 2' do
-  template 'rightscale_audit_entry.erb'
+# Ensure that volume 1 was deleted from the cloud
+ruby_block 'ensure volume 1 deleted' do
+  block do
+    if is_volume_deleted?(test_volume_1)
+      Chef::Log.info 'TESTING action_delete -- PASSED'
+    else
+      raise 'TESTING action_delete -- FAILED'
+    end
+  end
 end
 
 # Delete volume 2
-rightscale_volume 'test_device_2_DELETE_ME' do
+rightscale_volume test_volume_2 do
   action :delete
 end
 
 # Ensure that volume 2 was deleted from the cloud
 ruby_block 'ensure volume 2 deleted' do
   block do
-    # Call find_volumes method to retrieve specific volumes in the cloud
-    # See 'find_volumes' method in rightscale_volume/libraries/provider_rightscale_volume.rb for more information
-    volume = provider.send(:find_volumes, :name => 'test_device_2_DELETE_ME')
-    raise 'Volume was not successfully deleted' unless volume.nil?
+    if is_volume_deleted?(test_volume_2)
+      Chef::Log.info 'TESTING action_delete -- PASSED'
+    else
+      raise 'TESTING action_delete -- FAILED'
+    end
   end
 end
-
-# --- END TESTING 'action_delete' ---
