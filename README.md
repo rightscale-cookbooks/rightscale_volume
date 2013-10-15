@@ -103,6 +103,7 @@ order to work with the RightScale API.
   <tr>
     <td><tt>node['rightscale_volume']['name']</tt></td>
     <td>Name of the volume</td>
+    <td></td>
   </tr>
   <tr>
     <td><tt>node['rightscale_volume']['size']</tt></td>
@@ -112,14 +113,17 @@ order to work with the RightScale API.
   <tr>
     <td><tt>node['rightscale_volume']['description']</tt></td>
     <td>Description for the volume</td>
+    <td></td>
   </tr>
   <tr>
     <td><tt>node['rightscale_volume']['volume_id']</tt></td>
     <td>Identifier for a single volume</td>
+    <td></td>
   </tr>
   <tr>
     <td><tt>node['rightscale_volume']['snapshot_id']</tt></td>
     <td>Snapshot ID to create the volume from</td>
+    <td></td>
   </tr>
   <tr>
     <td><tt>node['rightscale_volume']['max_snapshots']</tt></td>
