@@ -2,13 +2,14 @@
 
 # Description
 
-This cookbook provides libraries, resources and providers to configure and manage
-network storage devices provided by numerous IaaS cloud vendors through RightScale.
+This cookbook provides a rightscale_volume resource that can create, attach and manage a single
+block level storage "volume" on numerous public and private IaaS clouds.
 
-A rightscale_volume provides a highly reliable, efficient and persistent storage solution
-that can be mounted to a cloud instance (in the same datacenter / zone). It uses
-RightScale API calls to manage volumes for VMs running on different cloud vendors.
+A volume provides a highly reliable, efficient storage solution that can be mounted to a
+cloud server (within the same datacenter / zone) and persists independently from the life of the instance.
 
+By using the RightScale API, this resource gives your recipes cloud portability without the need
+to store your cloud credentials on each server.
 
 # Requirements
 
@@ -17,20 +18,222 @@ RightScale API calls to manage volumes for VMs running on different cloud vendor
 * Chef 10 or higher.
 
 * Also requires a RightScale account that is registered with all the cloud vendors
-  you expect to provision on (e.g. AWS, Rackspace, Openstack, CloudStack, etc).
+  you expect to provision on (e.g. AWS, Rackspace, Openstack, CloudStack, GCE, and Azure).
+
+
+# Recipes
+
+## default
+
+The default recipe installs the `right_api_client` RubyGem, which this cookbook requires in
+order to work with the RightScale API.
+
+
+# Resource/Providers
+
+## rightscale_volume
+
+A resource to create, attach and manage a single "volume" on public and private IaaS clouds.
+
+
+### Action: create
+
+Creates a new volume in the cloud. This is the default action.
+
+#### Parameters
+
+<table>
+  <tr>
+    <th>Name</th>
+    <th>Description</th>
+    <th>Default</th>
+  </tr>
+  <tr>
+    <td>`node['rightscale_volume']['name']`</td>
+    <td>Name of the volume to be created</td>
+    <td></td>
+  </tr>
+  <tr>
+    <td>`node['rightscale_volume']['name']['size']`</td>
+    <td>Volume size in gigabytes</td>
+    <td>`1`</td>
+  </tr>
+  <tr>
+    <td>`node['rightscale_volume']['name']['description']`</td>
+    <td>Description for the volume</td>
+    <td></td>
+  </tr>
+  <tr>
+    <td>`node['rightscale_volume']['name']['snapshot_id']`</td>
+    <td>Snapshot ID to create the volume from</td>
+    <td></td>
+  </tr>
+  <tr>
+    <td>`node['rightscale_volume']['name']['options']`</td>
+    <td>Optional parameters hash for volume creation. For example, `+:volume_type` on Rackspace Open Clouds
+        and `+:iops` on AWS clouds</td>
+    <td>`{}`</td>
+  </tr>
+  <tr>
+    <td>`node['rightscale_volume']['name']['timeout']`</td>
+    <td>Throws an error if the volume could not be created by the cloud provider within this timeout (in minutes)</td>
+    <td>`15`</td>
+  </tr>
+</table>
+
+### Action: attach
+
+Attaches a volume to a RightScale server.
+
+#### Parameters
+
+<table>
+  <tr>
+    <th>Name</th>
+    <th>Description</th>
+    <th>Default</th>
+  </tr>
+  <tr>
+    <td>`node['rightscale_volume']['name']`</td>
+    <td>Name of the volume to be attached</td>
+    <td></td>
+  </tr>
+  <tr>
+    <td>`node['rightscale_volume']['name']['timeout']`</td>
+    <td>Throws an error if the volume could not be attached to the server within this timeout (in minutes)</td>
+    <td>`15`</td>
+  </tr>
+</table>
+
+### Action: detach
+
+Detaches a volume from a RightScale server.
+
+#### Parameters
+
+<table>
+  <tr>
+    <th>Name</th>
+    <th>Description</th>
+    <th>Default</th>
+  </tr>
+  <tr>
+    <td>`node['rightscale_volume']['name']`</td>
+    <td>Name of the volume</td>
+    <td></td>
+  </tr>
+  <tr>
+    <td>`node['rightscale_volume']['name']['timeout']`</td>
+    <td>Throws an error if volume could not be detached from the server within this timeout (in minutes)</td>
+    <td>`15`</td>
+  </tr>
+</table>
+
+### Action: delete
+
+Deletes a volume from the cloud.
+
+#### Parameters
+
+<table>
+  <tr>
+    <th>Name</th>
+    <th>Description</th>
+    <th>Default</th>
+  </tr>
+  <tr>
+    <td>`node['rightscale_volume']['name']`</td>
+    <td>Name of the volume</td>
+    <td></td>
+  </tr>
+  <tr>
+    <td>`node['rightscale_volume']['name']['timeout']`</td>
+    <td>Throws an error if volume could not be deleted by the cloud provider within this timeout (in minutes)</td>
+    <td>`15`</td>
+  </tr>
+</table>
+
+### Action: snapshot
+
+Takes a snapshot of a volume.
+
+#### Parameters
+<table>
+  <tr>
+    <th>Name</th>
+    <th>Description</th>
+    <th>Default</th>
+  </tr>
+  <tr>
+    <td>`node['rightscale_volume']['name']`</td>
+    <td>Name of the volume</td>
+    <td></td>
+  </tr>
+  <tr>
+    <td>`node['rightscale_volume']['name']['timeout']`</td>
+    <td>Throws an error if the snapshot could not be taken  by the cloud provider within this timeout (in minutes)</td>
+    <td>`15`</td>
+  </tr>
+</table>
+
+### Action: cleanup
+
+Cleans up old snapshots of a volume.
+
+#### Parameters
+
+<table>
+  <tr>
+    <th>Name</th>
+    <th>Description</th>
+    <th>Default</th>
+  </tr>
+  <tr>
+    <td>`node['rightscale_volume']['name']`</td>
+    <td>Name of the volume</td>
+    <td></td>
+  </tr>
+  <tr>
+    <td>`node['rightscale_volume']['name']['max_snapshots']`</td>
+    <td>The number of snapshots of a volume to retain when running the `+:cleanup+` action</td>
+    <td>`60`</td>
+  </tr>
+  <tr>
+    <td>`node['rightscale_volume']['name']['timeout']`</td>
+    <td>Throws an error if snapshots could not be cleaned up in the cloud within this timeout (in minutes)</td>
+    <td>`15`</td>
+  </tr>
+</table>
 
 
 # Usage
 
-The resource only handles manipulating the volume, additional resources need to be created in
+The resource only handles manipulating the volume. Additional resources need to be created in
 the recipe to manage the attached volume as a filesystem or logical volume.
 
-The following example will create a 10G volume and attach it to the instance.
+The following example will create a 10G volume, attach it to the instance, formats the device as ext4
+and mounts it to '/mnt/storage'.
 
 ```ruby
+# Creates a 10 GB volume
 rightscale_volume "db_data_volume" do
   size 10
-  action [ :create, :attach ]
+  action :create
+end
+
+# Attaches the volume to the instance
+rightscale_volume "db_data_volume" do
+  action :attach
+end
+
+execute "format volume as ext4" do
+  command "mkfs.ext4 #{node['rightscale_volume']['db_data_volume']['device']}"
+  action :run
+end
+
+execute "mount volume to /mnt/storage" do
+  command "mkdir -p /mnt/storage; mount #{node['rightscale_volume']['db_data_volume']['device']} /mnt/storage"
+  action :run
 end
 ```
 
@@ -50,93 +253,33 @@ the same as the volume from which the snapshot was taken. If resize is supported
 resources will be required to resize the filesystem on the volume.
 
 
-# Recipes
+# Cloud Specific Notes
 
-## default
+## Rackspace Open Cloud
 
-The default recipe installs the `right_api_client` RubyGem, which this cookbook requires in
-order to work with the RightScale API.
+* The minimum volume size offered by this cloud is 100 GB. The `+:create+` volume action throws an
+  error if the requested volume size is lesser than the minimum size offered.
+* This cloud supports two types of volume - SATA and SSD. The type of volume to be created can be
+  passed to the `options` parameter as below (defaults to SATA if none specified)
 
+```ruby
+rightscale_volume "open_cloud_volume" do
+  size 100
+  options {:volume_type => 'SSD'}
+  action :create
+end
+```
+* A volume cannot be deleted from this cloud, if it has at least one dependent snapshot(s)
+  i.e., snapshots created from this volume. To delete such a volume, all dependent snapshots must be
+  cleaned up first. The `+:delete` action does not delete such a volume and throws a warning message in the logs.
 
-# Actions
+## CloudStack Clouds
 
-<table>
-  <tr>
-    <th>Name</th>
-    <th>Description</th>
-  </tr>
-  <tr>
-    <td><tt>create</tt></td>
-    <td>Allocates a new volume. Default action</td>
-  </tr>
-  <tr>
-    <td><tt>delete</tt></td>
-    <td>Deallocates available volume</td>
-  </tr>
-  <tr>
-    <td><tt>attach</tt></td>
-    <td>Attach the volume to the instance</td>
-  </tr>
-  <tr>
-    <td><tt>detach</tt></td>
-    <td>Detach the volume from the instance</td>
-  </tr>
-  <tr>
-    <td><tt>snapshot</tt></td>
-    <td>Create a snapshot of the volume</td>
-  </tr>
-  <tr>
-    <td><tt>cleanup</tt></td>
-    <td>Deletes the oldest snapshots if there are more than `max_snapshots`</td>
-  </tr>
-</table>
-
-
-# Attributes
-
-<table>
-  <tr>
-    <th>Name</th>
-    <th>Description</th>
-    <th>Default</th>
-  </tr>
-  <tr>
-    <td><tt>node['rightscale_volume']['name']</tt></td>
-    <td>Name of the volume</td>
-    <td></td>
-  </tr>
-  <tr>
-    <td><tt>node['rightscale_volume']['size']</tt></td>
-    <td>Volume size in gigabytes</td>
-    <td><tt>1</tt></td>
-  </tr>
-  <tr>
-    <td><tt>node['rightscale_volume']['description']</tt></td>
-    <td>Description for the volume</td>
-    <td></td>
-  </tr>
-  <tr>
-    <td><tt>node['rightscale_volume']['volume_id']</tt></td>
-    <td>Identifier for a single volume</td>
-    <td></td>
-  </tr>
-  <tr>
-    <td><tt>node['rightscale_volume']['snapshot_id']</tt></td>
-    <td>Snapshot ID to create the volume from</td>
-    <td></td>
-  </tr>
-  <tr>
-    <td><tt>node['rightscale_volume']['max_snapshots']</tt></td>
-    <td>The number of snapshots of a volume to retain when running the :cleanup action</td>
-    <td><tt>60</tt></td>
-  </tr>
-  <tr>
-    <td><tt>node['rightscale_volume']['timeout']</tt></td>
-    <td>Throws an error if action cannot be completed by the cloud provider within this timeout given in minutes</td>
-    <td><tt>15</tt></td>
-  </tr>
-</table>
-
+* CloudStack has the concept of a "custom" disk offering. If a "custom volume type" is supported in the cloud,
+  then the `+:create` action creates a volume with the requested size. If "custom volume type" is not supported
+  then this action will use the "closest volume type" with size greater than or equal to the requested size.
+  If there are multiple custom volume types or multiple volume types with the closest size, the one with the greatest
+  resource UID will be used.
 
 # Author
 
