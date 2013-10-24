@@ -255,6 +255,11 @@ resources will be required to resize the filesystem on the volume.
 
 # Cloud Specific Notes
 
+## AWS EC2
+
+* For this resource to work on a EC2 cloud, the RightScale account must be on a
+  [UCP](http://support.rightscale.com/12-Guides/Dashboard_Users_Guide/Unified_Cloud_Platform) cluster.
+
 ## Rackspace Open Cloud
 
 * The minimum volume size offered by this cloud is 100 GB. The `+:create+` volume action throws an
