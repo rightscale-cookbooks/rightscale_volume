@@ -1,5 +1,7 @@
 # rightscale_volume cookbook
 
+[![Build Status](https://travis-ci.org/rightscale-cookbooks/rightscale_volume.png?branch=master)](https://travis-ci.org/rightscale-cookbooks/rightscale_volume)
+
 # Description
 
 This cookbook provides a rightscale_volume resource that can create, attach and manage a single
