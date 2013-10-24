@@ -91,12 +91,17 @@ class Chef
           @new_resource.snapshot_id,
           @new_resource.options
         )
-        @current_resource.volume_id = volume.resource_uid
 
-        # Store all volume information in node variable
-        save_device_hash
-        @new_resource.updated_by_last_action(true)
-        Chef::Log.info "Volume '#{@current_resource.name}' successfully created"
+        if volume.nil?
+          raise "Volume '#{@current_resource.name}' was not created successfully!"
+        else
+          @current_resource.volume_id = volume.resource_uid
+
+          # Store all volume information in node variable
+          save_device_hash
+          @new_resource.updated_by_last_action(true)
+          Chef::Log.info "Volume '#{@current_resource.name}' successfully created"
+        end
       end
 
       # Deletes a volume with the given name.
@@ -115,15 +120,17 @@ class Chef
         end
 
         Chef::Log.info "Deleting volume '#{@current_resource.name}'..."
-        status = delete_volume(@current_resource.volume_id)
-
-        # Set device in node variable to nil after successfully deleting the volume
-        delete_device_hash
-        @new_resource.updated_by_last_action(true)
-        if status
+        if delete_volume(@current_resource.volume_id)
+          # Set device in node variable to nil after successfully deleting the volume
+          delete_device_hash
+          @new_resource.updated_by_last_action(true)
           Chef::Log.info " Successfully deleted volume '#{@current_resource.name}'"
         else
-          Chef::Log.info " Volume '#{@current_resource.name}' was not deleted."
+          if node['cloud']['provider'] == 'rackspace-ng'
+            Chef::Log.info "Volume '#{@current_resource.name}' was not deleted!"
+          else
+            raise "Volume '#{@current_resource.name}' was not deleted!"
+          end
         end
       end
 
@@ -145,10 +152,14 @@ class Chef
 
         @current_resource.device = attach_volume(@current_resource.volume_id, get_next_device(device_letter_exclusions))
 
-        # Store all information in node variable
-        save_device_hash
-        @new_resource.updated_by_last_action(true)
-        Chef::Log.info "Volume '#{@current_resource.name}' successfully attached to '#{@current_resource.device}'"
+        if @current_resource.device.nil?
+          raise "Volume '#{@current_resource.name}' was not attached successfully!"
+        else
+          # Store all information in node variable
+          save_device_hash
+          @new_resource.updated_by_last_action(true)
+          Chef::Log.info "Volume '#{@current_resource.name}' successfully attached to '#{@current_resource.device}'"
+        end
       end
 
       # Detaches a volume from the device.
@@ -192,8 +203,12 @@ class Chef
         snapshot_name = @new_resource.snapshot_name if @new_resource.snapshot_name
         snapshot = create_snapshot(snapshot_name, @current_resource.volume_id)
 
-        Chef::Log.info "Snapshot of volume '#{@current_resource.name}' successfully created."
-        Chef::Log.info "Snapshot name: '#{snapshot.name}', ID: '#{snapshot.resource_uid}'"
+        if snapshot.nil?
+          raise "Snapshot of volume '#{@current_resource.name}' not created successfully!"
+        else
+          Chef::Log.info "Snapshot of volume '#{@current_resource.name}' successfully created."
+          Chef::Log.info "Snapshot name: '#{snapshot.name}', ID: '#{snapshot.resource_uid}'"
+        end
       end
 
       # Deletes old snapshots that exceeds the maximum snapshots limit for the specified volume.
@@ -272,7 +287,7 @@ class Chef
       # @raise [Timeout::Error] if volume creation takes longer than the timeout value
       #
       def create_volume(name, size, description = "", snapshot_id = nil, options = {})
-        if (size < 100 && node[:cloud][:provider] == "rackspace-ng")
+        if (size < 100 && node['cloud']['provider'] == "rackspace-ng")
           raise "Minimum volume size supported by this cloud is 100 GB."
         end
 
@@ -288,7 +303,7 @@ class Chef
         datacenter_href = instance.links.detect { |link| link["rel"] == "datacenter" }
         params[:volume][:datacenter_href] = datacenter_href["href"] if datacenter_href
 
-        volume_type_href = get_volume_type_href(node[:cloud][:provider], size, options)
+        volume_type_href = get_volume_type_href(node['cloud']['provider'], size, options)
         params[:volume][:volume_type_href] = volume_type_href unless volume_type_href.nil?
 
         # If description parameter is nil or empty do not pass it to the API
@@ -460,7 +475,7 @@ class Chef
 
         # use the lowest available LUN if we are on Azure/HyperV/VirtualPC
         hypervisor = node[:virtualization][:system] || node[:virtualization][:emulator]
-        if hypervisor == "virtualpc" || node[:cloud][:provider] == "google"
+        if hypervisor == "virtualpc" || node['cloud']['provider'] == "google"
           luns = attached_devices.map { |attached_device| attached_device.to_i }.to_set
           lun = 0
           params[:volume_attachment][:device] = loop do
@@ -752,7 +767,7 @@ class Chef
         #
         # http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-attaching-volume.html
         #
-        if node[:cloud][:provider] == "ec2" && partitions.last =~ /^\/dev\/(s|xv)d[a-d][0-9]*$/
+        if node['cloud']['provider'] == "ec2" && partitions.last =~ /^\/dev\/(s|xv)d[a-d][0-9]*$/
           partitions << "/dev/#{$1}de"
         end
 
@@ -767,7 +782,7 @@ class Chef
 
           last_device_letter_in_use = $1
 
-          if node[:cloud][:provider] == 'ec2' && device_type == 'hd'
+          if node['cloud']['provider'] == 'ec2' && device_type == 'hd'
             # This is probably HVM
             hvm = true
             # Root device is /dev/hda on HVM images, but volumes are xvd in /proc/partitions,
@@ -808,7 +823,7 @@ class Chef
         exclusions = []
         # /dev/xvdd is assigned to the cdrom device eg., xentools iso (xe-guest-utilities)
         # that is likely a xenserver-ism
-        exclusions = ['d'] if node[:cloud][:provider] == 'cloudstack'
+        exclusions = ['d'] if node['cloud']['provider'] == 'cloudstack'
         exclusions
       end
 

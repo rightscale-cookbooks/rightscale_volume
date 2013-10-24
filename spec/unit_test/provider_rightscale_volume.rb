@@ -130,7 +130,7 @@ describe Chef::Provider::RightscaleVolume do
   end
 
   describe "#load_current_resource" do
-    before (:each) do
+    before(:each) do
       node.set['rightscale_volume']['test_volume'] = {
         'volume_id' => 'some_id',
         :device => 'some_device'
@@ -245,6 +245,16 @@ describe Chef::Provider::RightscaleVolume do
             run_action(:create)
           end
         end
+
+        context "volume was not successfully created" do
+          it "should raise an exception" do
+            provider.stub(:create_volume).and_return(nil)
+
+            expect {
+              run_action(:create)
+            }.to raise_error(RuntimeError)
+          end
+        end
       end
 
       context "volume already exists" do
@@ -280,6 +290,19 @@ describe Chef::Provider::RightscaleVolume do
 
           run_action(:attach)
         end
+
+        context "volume not attached successfully" do
+          it "should raise an exception" do
+            create_test_volume
+            provider.stub(:device_letter_exclusions => [])
+            provider.stub(:get_next_device).and_return('some_device')
+            provider.stub(:attach_volume).and_return(nil)
+
+            expect {
+              run_action(:attach)
+            }.to raise_error(RuntimeError)
+          end
+        end
       end
 
       context "volume to be attached exists and in use" do
@@ -308,6 +331,17 @@ describe Chef::Provider::RightscaleVolume do
 
           provider.should_receive(:create_snapshot).and_return(snapshot_stub)
           run_action(:snapshot)
+        end
+
+        context "volume snapshot failed" do
+          it "should raise an exception" do
+            create_test_volume
+            provider.stub(:create_snapshot).and_return(nil)
+
+            expect {
+              run_action(:snapshot)
+            }.to raise_error(RuntimeError)
+          end
         end
       end
 
@@ -356,6 +390,31 @@ describe Chef::Provider::RightscaleVolume do
 
           provider.should_receive(:delete_volume).and_return(true)
           run_action(:delete)
+        end
+
+        context "volume deletion failed" do
+          before(:each) do
+            create_test_volume
+            provider.stub(:delete_volume).and_return(false)
+          end
+
+          context "on Rackspace Open Cloud" do
+            it "should not raise execption" do
+              node.set['cloud']['provider'] = 'rackspace-ng'
+              expect {
+                run_action(:delete)
+              }.to_not raise_error(RuntimeError)
+            end
+          end
+
+          context "on all other clouds" do
+            it "should raise an exception" do
+              node.set['cloud']['provider'] = 'some_cloud'
+              expect {
+                run_action(:delete)
+              }.to raise_error(RuntimeError)
+            end
+          end
         end
       end
 
@@ -412,7 +471,7 @@ describe Chef::Provider::RightscaleVolume do
       context "given the name and size for the volume" do
         context "the cloud provider is not rackspace-ng or cloudstack" do
           it "should create the volume" do
-            node.set[:cloud][:provider] = 'some_cloud'
+            node.set['cloud']['provider'] = 'some_cloud'
             client_stub.should_receive(:volumes).and_return(volume_resource)
             provider.send(:create_volume, 'name', 1)
           end
@@ -443,7 +502,7 @@ describe Chef::Provider::RightscaleVolume do
       end
 
       context "when the cloud is rackspace-ng" do
-        before (:each) do
+        before(:each) do
           sata = create_test_volume_type('sata', 'sata', 100, 'sata')
           ssd = create_test_volume_type('ssd', 'ssd', 100, 'ssd')
           volume_type_stub.stub(:index => [sata, ssd])
@@ -460,7 +519,7 @@ describe Chef::Provider::RightscaleVolume do
       end
 
       context "when the cloud is cloudstack" do
-        before (:each) do
+        before(:each) do
           # Create dummy volume types
           volume_type_1 = create_test_volume_type('type_1', 'id_1', '5', 'href_1')
           volume_type_2 = create_test_volume_type('type_2', 'id_2', '10', 'href_2')
@@ -518,7 +577,7 @@ describe Chef::Provider::RightscaleVolume do
         provider.stub(:get_current_devices).and_return(['device_1', 'device_2'])
 
         node.set[:virtualization][:system] = 'some_hypervisor'
-        node.set[:cloud][:provider] = 'some_cloud'
+        node.set['cloud']['provider'] = 'some_cloud'
         volume_attachment_resource.stub(:state => 'attached')
         volume_stub.stub(:status => 'in-use')
 
@@ -630,7 +689,7 @@ describe Chef::Provider::RightscaleVolume do
 
     describe "#get_next_device" do
       it "should return the next available device" do
-        node.set[:cloud][:provider] = 'some_cloud'
+        node.set['cloud']['provider'] = 'some_cloud'
 
         provider.stub(:get_current_devices).and_return(['/dev/sda', '/dev/sdb'])
         device = provider.send(:get_next_device)
@@ -648,7 +707,7 @@ describe Chef::Provider::RightscaleVolume do
 
       context "when the partitions in /proc/partitions are of unknown type" do
         it "should raise an error" do
-          node.set[:cloud][:provider] = 'some_cloud'
+          node.set['cloud']['provider'] = 'some_cloud'
           provider.stub(:get_current_devices).and_return(['/dev/vcs', '/dev/vcs1'])
           expect {
             provider.send(:get_next_device)
@@ -658,14 +717,14 @@ describe Chef::Provider::RightscaleVolume do
 
       context "when the cloud provider is ec2" do
         it "should not return the device as anything between (s|xv|h)da and (s|xv|h)de" do
-          node.set[:cloud][:provider] = 'ec2'
+          node.set['cloud']['provider'] = 'ec2'
           provider.stub(:get_current_devices).and_return(['/dev/sda', '/dev/sdb'])
           device = provider.send(:get_next_device)
           device.should == '/dev/sdf'
         end
 
         it "should not return the device as anything between xvda and xvde if the instance is of HVM type" do
-          node.set[:cloud][:provider] = 'ec2'
+          node.set['cloud']['provider'] = 'ec2'
           provider.stub(:get_current_devices).and_return(['/dev/hda'])
           device = provider.send(:get_next_device)
           device.should == '/dev/xvdf'
@@ -676,14 +735,14 @@ describe Chef::Provider::RightscaleVolume do
     describe "#device_letter_exclusions" do
       context "when the cloud provider is anything other than cloudstack" do
         it "should return an empty array" do
-          node.set[:cloud][:provider] = 'some_cloud'
+          node.set['cloud']['provider'] = 'some_cloud'
           provider.send(:device_letter_exclusions).should have(0).items
         end
       end
 
       context "when the cloud provider is cloudstack" do
         it "should return an array with one element and the element must be 'd'" do
-          node.set[:cloud][:provider] = 'cloudstack'
+          node.set['cloud']['provider'] = 'cloudstack'
           exclusions = provider.send(:device_letter_exclusions)
           exclusions.should have_at_most(1).items
           exclusions.should include('d')
