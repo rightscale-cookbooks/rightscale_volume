@@ -49,35 +49,35 @@ Creates a new volume in the cloud. This is the default action.
     <th>Default</th>
   </tr>
   <tr>
-    <td>`node['rightscale_volume']['name']`</td>
+    <td>name</td>
     <td>Name of the volume to be created</td>
     <td></td>
   </tr>
   <tr>
-    <td>`node['rightscale_volume']['name']['size']`</td>
+    <td>size</td>
     <td>Volume size in gigabytes</td>
-    <td>`1`</td>
+    <td>1</td>
   </tr>
   <tr>
-    <td>`node['rightscale_volume']['name']['description']`</td>
+    <td>description</td>
     <td>Description for the volume</td>
     <td></td>
   </tr>
   <tr>
-    <td>`node['rightscale_volume']['name']['snapshot_id']`</td>
+    <td>snapshot_id</td>
     <td>Snapshot ID to create the volume from</td>
     <td></td>
   </tr>
   <tr>
-    <td>`node['rightscale_volume']['name']['options']`</td>
-    <td>Optional parameters hash for volume creation. For example, `+:volume_type` on Rackspace Open Clouds
-        and `+:iops` on AWS clouds</td>
-    <td>`{}`</td>
+    <td>options</td>
+    <td>Optional parameters hash for volume creation. For example, <tt>+:volume_type+</tt> on Rackspace Open Clouds
+        and <tt>+:iops+</tt> on AWS clouds</td>
+    <td>{}</td>
   </tr>
   <tr>
-    <td>`node['rightscale_volume']['name']['timeout']`</td>
+    <td>timeout</td>
     <td>Throws an error if the volume could not be created by the cloud provider within this timeout (in minutes)</td>
-    <td>`15`</td>
+    <td>15</td>
   </tr>
 </table>
 
@@ -94,14 +94,14 @@ Attaches a volume to a RightScale server.
     <th>Default</th>
   </tr>
   <tr>
-    <td>`node['rightscale_volume']['name']`</td>
+    <td>name</td>
     <td>Name of the volume to be attached</td>
     <td></td>
   </tr>
   <tr>
-    <td>`node['rightscale_volume']['name']['timeout']`</td>
+    <td>timeout</td>
     <td>Throws an error if the volume could not be attached to the server within this timeout (in minutes)</td>
-    <td>`15`</td>
+    <td>15</td>
   </tr>
 </table>
 
@@ -118,14 +118,14 @@ Detaches a volume from a RightScale server.
     <th>Default</th>
   </tr>
   <tr>
-    <td>`node['rightscale_volume']['name']`</td>
+    <td>name</td>
     <td>Name of the volume</td>
     <td></td>
   </tr>
   <tr>
-    <td>`node['rightscale_volume']['name']['timeout']`</td>
+    <td>timeout</td>
     <td>Throws an error if volume could not be detached from the server within this timeout (in minutes)</td>
-    <td>`15`</td>
+    <td>15</td>
   </tr>
 </table>
 
@@ -142,14 +142,14 @@ Deletes a volume from the cloud.
     <th>Default</th>
   </tr>
   <tr>
-    <td>`node['rightscale_volume']['name']`</td>
+    <td>name</td>
     <td>Name of the volume</td>
     <td></td>
   </tr>
   <tr>
-    <td>`node['rightscale_volume']['name']['timeout']`</td>
+    <td>timeout</td>
     <td>Throws an error if volume could not be deleted by the cloud provider within this timeout (in minutes)</td>
-    <td>`15`</td>
+    <td>15</td>
   </tr>
 </table>
 
@@ -165,14 +165,14 @@ Takes a snapshot of a volume.
     <th>Default</th>
   </tr>
   <tr>
-    <td>`node['rightscale_volume']['name']`</td>
+    <td>name</td>
     <td>Name of the volume</td>
     <td></td>
   </tr>
   <tr>
-    <td>`node['rightscale_volume']['name']['timeout']`</td>
+    <td>timeout</td>
     <td>Throws an error if the snapshot could not be taken  by the cloud provider within this timeout (in minutes)</td>
-    <td>`15`</td>
+    <td>15</td>
   </tr>
 </table>
 
@@ -189,19 +189,19 @@ Cleans up old snapshots of a volume.
     <th>Default</th>
   </tr>
   <tr>
-    <td>`node['rightscale_volume']['name']`</td>
+    <td>name</td>
     <td>Name of the volume</td>
     <td></td>
   </tr>
   <tr>
-    <td>`node['rightscale_volume']['name']['max_snapshots']`</td>
-    <td>The number of snapshots of a volume to retain when running the `+:cleanup+` action</td>
-    <td>`60`</td>
+    <td>max_snapshots</td>
+    <td>The number of snapshots of a volume to retain when running the <tt>+:cleanup+</tt> action</td>
+    <td>60</td>
   </tr>
   <tr>
-    <td>`node['rightscale_volume']['name']['timeout']`</td>
+    <td>timeout</td>
     <td>Throws an error if snapshots could not be cleaned up in the cloud within this timeout (in minutes)</td>
-    <td>`15`</td>
+    <td>15</td>
   </tr>
 </table>
 
@@ -271,12 +271,12 @@ end
 ```
 * A volume cannot be deleted from this cloud, if it has at least one dependent snapshot(s)
   i.e., snapshots created from this volume. To delete such a volume, all dependent snapshots must be
-  cleaned up first. The `+:delete` action does not delete such a volume and throws a warning message in the logs.
+  cleaned up first. The `+:delete+` action does not delete such a volume and throws a warning message in the logs.
 
 ## CloudStack Clouds
 
 * CloudStack has the concept of a "custom" disk offering. If a "custom volume type" is supported in the cloud,
-  then the `+:create` action creates a volume with the requested size. If "custom volume type" is not supported
+  then the `+:create+` action creates a volume with the requested size. If "custom volume type" is not supported
   then this action will use the "closest volume type" with size greater than or equal to the requested size.
   If there are multiple custom volume types or multiple volume types with the closest size, the one with the greatest
   resource UID will be used.

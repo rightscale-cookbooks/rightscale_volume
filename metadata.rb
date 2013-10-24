@@ -2,7 +2,8 @@ name             'rightscale_volume'
 maintainer       'RightScale, Inc.'
 maintainer_email 'cookbooks@rightscale.com'
 license          'Apache 2.0'
-description      'Installs/Configures rightscale_volume'
+description      'Provides a rightscale_volume resource that can create, attach, and manage a single' +
+                  ' block level storage "volume" on numerous public and private IaaS clouds.'
 long_description IO.read(File.join(File.dirname(__FILE__), 'README.md'))
 version          IO.read(File.join(File.dirname(__FILE__), 'VERSION')) rescue '0.1.0'
 

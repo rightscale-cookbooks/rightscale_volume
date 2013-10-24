@@ -20,7 +20,12 @@
 require 'spec_helper'
 
 describe Chef::Provider::RightscaleVolume do
-  let(:provider) { Chef::Provider::RightscaleVolume.new(new_resource, run_context) }
+  let(:provider) do
+    provider = Chef::Provider::RightscaleVolume.new(new_resource, run_context)
+    provider.stub(:initialize_api_client).and_return(client_stub)
+    provider
+  end
+
   let(:new_resource) { Chef::Resource::RightscaleVolume.new('test_volume') }
   let(:current_resource) { Chef::Resource::RightscaleVolume.new('test_volume') }
   let(:events) { Chef::EventDispatch::Dispatcher.new }
@@ -32,6 +37,12 @@ describe Chef::Provider::RightscaleVolume do
   let(:run_context) { Chef::RunContext.new(node, {}, events) }
 
   # Mock objects for the right_api_client
+  let(:client_stub) do
+    client = double('RightApi::Client', :log => nil)
+    client.stub(:get_instance).and_return(instance_stub)
+    client
+  end
+
   let(:volume_resource) do
     volume = double('volumes')
     volume.stub(
@@ -118,6 +129,50 @@ describe Chef::Provider::RightscaleVolume do
     Array.new(n) { object }
   end
 
+  describe "#load_current_resource" do
+    before (:each) do
+      node.set['rightscale_volume']['test_volume'] = {
+        'volume_id' => 'some_id',
+        :device => 'some_device'
+      }
+    end
+
+    context "when the volume does not exist in the node" do
+      it "should return current_resource" do
+        new_resource.name = 'new_test_volume'
+        provider.load_current_resource
+        provider.current_resource.volume_id.should be_nil
+        provider.current_resource.state.should be_nil
+        provider.current_resource.size.should == 1
+        provider.current_resource.description.should be_nil
+        provider.current_resource.device.should be_nil
+      end
+    end
+
+    context "when the volume exists in the node" do
+      context "when the volume exists in the cloud" do
+        it "should get volume details from the API" do
+          provider.stub(:find_volumes).and_return(array_of(volume_resource))
+          provider.load_current_resource
+
+          provider.current_resource.volume_id.should == 'some_id'
+          provider.current_resource.state.should_not be_nil
+          provider.current_resource.size.should == 1
+          provider.current_resource.description.should == 'test_volume description'
+          provider.current_resource.device.should == 'some_device'
+        end
+      end
+
+      context "when the volume does not exist in the cloud" do
+        it "should raise an exception" do
+          provider.stub(:find_volumes).and_return([])
+          expect {
+            provider.load_current_resource
+          }.to raise_error(RuntimeError)
+        end
+      end
+    end
+  end
 
   # Test all actions supported by the provider
   #
@@ -127,24 +182,43 @@ describe Chef::Provider::RightscaleVolume do
     #
     def create_test_volume
       provider.stub(:create_volume).and_return(volume_stub)
-      provider.run_action(:create)
+      volume_stub.stub(:status).and_return('available')
+      run_action(:create)
+    end
+
+    # Attaches a test volume by stubbing out the attach_volume method.
+    #
+    def attach_test_volume
+      provider.stub(:device_letter_exclusions => [])
+      provider.stub(:get_next_device).and_return('some_device')
+      provider.stub(:attach_volume).and_return('/dev/some_device')
+      run_action(:attach)
+      volume_stub.stub(:status).and_return('in-use')
+    end
+
+    # Runs the specified action.
+    #
+    def run_action(action_sym)
+      provider.run_action(action_sym)
+      provider.load_current_resource
     end
 
 
     before(:each) do
-      new_resource.size = volume_stub.size
+      node.set['rightscale_volume'] = {}
+
+      new_resource.size = volume_stub.size.to_i
       new_resource.description = volume_stub.description
 
-      provider.stub(:load_current_resource).and_return(current_resource)
+      provider.stub(:find_volumes).and_return(array_of(volume_resource))
       provider.new_resource = new_resource
-      provider.current_resource = current_resource
     end
 
     describe "#action_create" do
       context "volume does not exist" do
         it "should create the volume" do
           provider.should_receive(:create_volume).and_return(volume_stub)
-          provider.run_action(:create)
+          run_action(:create)
         end
 
         context "trying to create a volume with a specific ID" do
@@ -152,7 +226,7 @@ describe Chef::Provider::RightscaleVolume do
             new_resource.volume_id = 'some_id'
             provider.should_not_receive(:create_volume)
             expect {
-              provider.run_action(:create)
+              run_action(:create)
             }.to raise_error(RuntimeError, "Cannot create a volume with specific ID.")
           end
         end
@@ -163,21 +237,33 @@ describe Chef::Provider::RightscaleVolume do
             new_resource.snapshot_id = snapshot_id
             provider.should_receive(:create_volume).with(
               volume_stub.name,
-              volume_stub.size,
+              volume_stub.size.to_i,
               volume_stub.description,
               snapshot_id,
               {}
             ).and_return(volume_stub)
-            provider.run_action(:create)
+            run_action(:create)
           end
         end
       end
 
       context "volume already exists" do
-        it "should not create a new volume" do
-          create_test_volume
-          provider.should_not_receive(:create_volume)
-          provider.run_action(:create)
+        context "requested volume size same as the one already exists" do
+          it "should not create a new volume" do
+            create_test_volume
+            provider.should_not_receive(:create_volume)
+            run_action(:create)
+          end
+        end
+
+        context "requested volume size is different from the one already exists" do
+          it "should raise an exception" do
+            create_test_volume
+            provider.new_resource.size = 10
+            expect {
+              run_action(:create)
+            }.to raise_error(RuntimeError)
+          end
         end
       end
     end
@@ -192,26 +278,25 @@ describe Chef::Provider::RightscaleVolume do
           provider.should_receive(:get_next_device).and_return('some_device')
           provider.should_receive(:attach_volume).and_return(attached_device)
 
-          volume_stub.stub(:status => 'in-use')
-          provider.should_receive(:find_volumes).and_return(array_of(volume_resource))
-          provider.run_action(:attach)
+          run_action(:attach)
         end
       end
 
       context "volume to be attached exists and in use" do
         it "should not attach the volume" do
           create_test_volume
+          attach_test_volume
 
-          current_resource.state = 'in-use'
           provider.should_not_receive(:get_next_device)
-          provider.run_action(:attach)
+          run_action(:attach)
         end
       end
 
       context "volume to be attached does not exist" do
-        it "should not attach the volume" do
-          provider.should_not_receive(:get_next_device)
-          provider.run_action(:attach)
+        it "should raise an exception" do
+          expect {
+            run_action(:attach)
+          }.to raise_error(RuntimeError)
         end
       end
     end
@@ -222,14 +307,15 @@ describe Chef::Provider::RightscaleVolume do
           create_test_volume
 
           provider.should_receive(:create_snapshot).and_return(snapshot_stub)
-          provider.run_action(:snapshot)
+          run_action(:snapshot)
         end
       end
 
       context "volume to be snapshotted does not exist" do
-        it "should not take a snapshot of the volume" do
-          provider.should_not_receive(:create_snapshot)
-          provider.run_action(:snapshot)
+        it "should raise an exception" do
+          expect {
+            run_action(:snapshot)
+          }.to raise_error(RuntimeError)
         end
       end
     end
@@ -238,13 +324,10 @@ describe Chef::Provider::RightscaleVolume do
       context "volume to be detached exists and in use" do
         it "should detach the volume" do
           create_test_volume
+          attach_test_volume
 
-          current_resource.state = 'in-use'
           provider.should_receive(:detach_volume).and_return(volume_stub)
-
-          volume_stub.stub(:status => 'available')
-          provider.should_receive(:find_volumes).and_return(array_of(volume_resource))
-          provider.run_action(:detach)
+          run_action(:detach)
         end
       end
 
@@ -253,14 +336,15 @@ describe Chef::Provider::RightscaleVolume do
           create_test_volume
 
           provider.should_not_receive(:detach_volume)
-          provider.run_action(:detach)
+          run_action(:detach)
         end
       end
 
       context "volume to be detached does not exist" do
-        it "should not detach the volume" do
-          provider.should_not_receive(:detach_volume)
-          provider.run_action(:detach)
+        it "should raise an exception" do
+          expect {
+            run_action(:detach)
+          }.to raise_error(RuntimeError)
         end
       end
     end
@@ -271,24 +355,24 @@ describe Chef::Provider::RightscaleVolume do
           create_test_volume
 
           provider.should_receive(:delete_volume).and_return(true)
-          provider.run_action(:delete)
+          run_action(:delete)
         end
       end
 
       context "volume to be deleted exists and in use" do
-        it "should not delete volume" do
+        it "should raise an exception" do
           create_test_volume
-
-          current_resource.state = 'in-use'
-          provider.should_not_receive(:delete_volume)
-          provider.run_action(:delete)
+          attach_test_volume
+          expect {
+            run_action(:delete)
+          }.to raise_error(RuntimeError)
         end
       end
 
       context "volume to be deleted does not exist" do
         it "should not delete volume" do
           provider.should_not_receive(:delete_volume)
-          provider.run_action(:delete)
+          run_action(:delete)
         end
       end
     end
@@ -299,14 +383,15 @@ describe Chef::Provider::RightscaleVolume do
           create_test_volume
 
           provider.should_receive(:cleanup_snapshots).and_return(3)
-          provider.run_action(:cleanup)
+          run_action(:cleanup)
         end
       end
 
       context "volume for which old snapshots need to be cleaned does not exist" do
         it "should not clean up snapshots" do
-          provider.should_not_receive(:cleanup_snapshots)
-          provider.run_action(:cleanup)
+          expect {
+            run_action(:cleanup)
+          }.to raise_error(RuntimeError)
         end
       end
     end
@@ -314,10 +399,8 @@ describe Chef::Provider::RightscaleVolume do
 
   # Spec test for the helper methods in the provider
   describe "class methods" do
-    let(:client_stub) { double('RightApi::Client', :log => nil) }
 
     before(:each) do
-      provider.stub(:initialize_api_client).and_return(client_stub)
       provider.load_current_resource
     end
 
@@ -330,7 +413,6 @@ describe Chef::Provider::RightscaleVolume do
         context "the cloud provider is not rackspace-ng or cloudstack" do
           it "should create the volume" do
             node.set[:cloud][:provider] = 'some_cloud'
-            client_stub.should_receive(:get_instance).and_return(instance_stub)
             client_stub.should_receive(:volumes).and_return(volume_resource)
             provider.send(:create_volume, 'name', 1)
           end
@@ -339,7 +421,20 @@ describe Chef::Provider::RightscaleVolume do
     end
 
     describe "#get_volume_type_href" do
-      #TODO: Better tests for Cloudstack and Rackspace Open Cloud
+
+      # Creates a dummy volume type.
+      #
+      # @param name [String] name of the volume type
+      # @param id [String] resource UID of the volume type
+      # @param size [String] size of the volume type
+      # @param href [String] href of the volume type
+      #
+      def create_test_volume_type(name, id, size, href)
+        volume_type = double('volume_types')
+        volume_type.stub(:name => name, :resource_uid => id, :size => size, :href => href)
+        volume_type
+      end
+
       context "when the cloud is neither rackspace-ng nor cloudstack" do
         it "should return nil" do
           volume_type = provider.send(:get_volume_type_href, 'some_cloud', 1)
@@ -348,22 +443,62 @@ describe Chef::Provider::RightscaleVolume do
       end
 
       context "when the cloud is rackspace-ng" do
-        it "should return href of the requested volume type" do
-          volume_type_stub.stub(:index => array_of(volume_type_stub))
+        before (:each) do
+          sata = create_test_volume_type('sata', 'sata', 100, 'sata')
+          ssd = create_test_volume_type('ssd', 'ssd', 100, 'ssd')
+          volume_type_stub.stub(:index => [sata, ssd])
+          client_stub.stub(:volume_types).and_return(volume_type_stub)
+        end
 
-          client_stub.should_receive(:volume_types).and_return(volume_type_stub)
-          volume_type = provider.send(:get_volume_type_href, 'rackspace-ng', 100, {:volume_type => 'some_name'})
-          volume_type.should_not be_nil
+        it "should return href of the requested volume type" do
+          volume_type = provider.send(:get_volume_type_href, 'rackspace-ng', 100, {:volume_type => 'SATA'})
+          volume_type.should == 'sata'
+
+          volume_type = provider.send(:get_volume_type_href, 'rackspace-ng', 100, {:volume_type => 'SSD'})
+          volume_type.should == 'ssd'
         end
       end
 
       context "when the cloud is cloudstack" do
-        it "should return href of the requested volume type" do
-          volume_type_stub.stub(:index => array_of(volume_type_stub), :size => '1')
+        before (:each) do
+          # Create dummy volume types
+          volume_type_1 = create_test_volume_type('type_1', 'id_1', '5', 'href_1')
+          volume_type_2 = create_test_volume_type('type_2', 'id_2', '10', 'href_2')
+          volume_type_stub.stub(:index => [volume_type_1, volume_type_2])
+          client_stub.stub(:volume_types).and_return(volume_type_stub)
+        end
 
-          client_stub.should_receive(:volume_types).and_return(volume_type_stub)
-          volume_type = provider.send(:get_volume_type_href, 'cloudstack', 1)
-          volume_type.should_not be_nil
+        context "when a custom volume does not exist" do
+          context "when volume type href with size equal to the requested size exists" do
+            it "should return volume type href" do
+              href = provider.send(:get_volume_type_href, 'cloudstack', 5)
+              href.should == 'href_1'
+            end
+          end
+
+          context "when volume type href with size greater than the requested size exists" do
+            it "should return volume type href" do
+              href = provider.send(:get_volume_type_href, 'cloudstack', 8)
+              href.should == 'href_2'
+            end
+          end
+
+          context "when no volume type href with size greater than or equal to the requested size exists" do
+            it "should return volume type href" do
+              expect {
+                href = provider.send(:get_volume_type_href, 'cloudstack', 20)
+              }.to raise_error(RuntimeError)
+            end
+          end
+        end
+
+        context "when a custom volume type exist" do
+          it "should return href of the custom volume type with the requested size" do
+            custom_volume_type = create_test_volume_type('custom', 'custom', '0', 'custom')
+            volume_type_stub.stub(:index => [custom_volume_type])
+            volume_type_href = provider.send(:get_volume_type_href, 'cloudstack', 3)
+            volume_type_href.should == 'custom'
+          end
         end
       end
     end
@@ -380,7 +515,6 @@ describe Chef::Provider::RightscaleVolume do
     describe "#attach_volume" do
       it "should attach the volume to an instance" do
         provider.stub(:find_volumes).and_return(array_of(volume_resource))
-        client_stub.stub(:get_instance).and_return(instance_stub)
         provider.stub(:get_current_devices).and_return(['device_1', 'device_2'])
 
         node.set[:virtualization][:system] = 'some_hypervisor'
@@ -412,11 +546,7 @@ describe Chef::Provider::RightscaleVolume do
     end
 
     describe "#volume_attachments" do
-      #TODO: Have a set of test volume attachments and check if the filter returns
-      # correct ones
-      #
       it "should return the attached volumes based on the given filter" do
-        client_stub.stub(:get_instance).and_return(instance_stub)
         client_stub.should_receive(:volume_attachments).and_return(volume_attachment_resource)
         volume_attachment_resource.stub(:index).and_return(array_of(volume_attachment_resource))
         attachments = provider.send(:volume_attachments)
@@ -427,7 +557,6 @@ describe Chef::Provider::RightscaleVolume do
     describe "#detach_volume" do
       it "should detach the volume from the instance" do
         provider.stub(:find_volumes).and_return(array_of(volume_resource))
-        client_stub.stub(:get_instance).and_return(instance_stub)
         client_stub.should_receive(:volume_attachments).and_return(volume_attachment_resource)
         volume_attachment_resource.stub(:index => array_of(volume_attachment_resource))
         volume_attachment_resource.should_receive(:destroy)
