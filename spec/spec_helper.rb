@@ -1,6 +1,6 @@
 #
 # Cookbook Name:: rightscale_volume
-# Recipe:: default
+# Spec:: spec_helper
 #
 # Copyright (C) 2013 RightScale, Inc.
 #
@@ -17,8 +17,9 @@
 # limitations under the License.
 #
 
-log "Installing required gems..."
+lib = File.expand_path('../../libraries', __FILE__)
+$:.unshift(lib) unless $:.include?(lib)
 
-# Install gems during compile phase so that they are available to files
-# which require them during converge phase.
-chef_gem 'right_api_client'
+require 'chefspec'
+require 'provider_rightscale_volume'
+require 'resource_rightscale_volume'
