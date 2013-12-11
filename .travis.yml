@@ -3,3 +3,8 @@ rvm:
   - 2.0.0
   - 1.9.3
 script: bundle exec strainer test
+notifications:
+  irc:
+    channels: ["chat.freenode.net#rightscale"]
+    use_notice: true
+    skip_join: true
