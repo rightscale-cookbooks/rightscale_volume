@@ -403,7 +403,7 @@ describe Chef::Provider::RightscaleVolume do
               node.set['cloud']['provider'] = 'rackspace-ng'
               expect {
                 run_action(:delete)
-              }.to_not raise_error(RuntimeError)
+              }.to_not raise_error
             end
           end
 
