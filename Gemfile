@@ -4,7 +4,7 @@ gem 'berkshelf'
 gem 'thor-foodcritic'
 gem 'thor-scmversion'
 gem 'right_api_client'
-gem 'rightscale_upload', :github => 'douglaswth/rightscale_upload'
+gem 'rightscale_upload', :github => 'rightscale/rightscale_upload'
 
 group :integration do
   gem 'strainer', '~> 3.3.0'
