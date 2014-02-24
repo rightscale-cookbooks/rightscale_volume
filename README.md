@@ -229,12 +229,12 @@ rightscale_volume "db_data_volume" do
 end
 
 execute "format volume as ext4" do
-  command "mkfs.ext4 #{node['rightscale_volume']['db_data_volume']['device']}"
+  command lazy { "mkfs.ext4 #{node['rightscale_volume']['db_data_volume']['device']}" }
   action :run
 end
 
 execute "mount volume to /mnt/storage" do
-  command "mkdir -p /mnt/storage; mount #{node['rightscale_volume']['db_data_volume']['device']} /mnt/storage"
+  command lazy { "mkdir -p /mnt/storage; mount #{node['rightscale_volume']['db_data_volume']['device']} /mnt/storage" }
   action :run
 end
 ```
