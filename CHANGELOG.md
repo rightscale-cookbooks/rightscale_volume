@@ -7,6 +7,7 @@ v1.0.1
 ------
 
 - Pull Request [#6][]: Also check for 'gce' cloud type for google
+- Added ChefSpec matchers
 
 v1.0.0
 ------
