@@ -378,7 +378,7 @@ describe Chef::Provider::RightscaleVolume do
         it "should raise an exception" do
           expect {
             run_action(:detach)
-          }.to raise_error(RuntimeError)
+          }.not_to raise_error(RuntimeError)
         end
       end
     end

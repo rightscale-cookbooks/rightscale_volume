@@ -167,8 +167,9 @@ class Chef
       def action_detach
         # If volume is not available or not attached, do nothing
         if @current_resource.state.nil?
-          raise "Device '#{@current_resource.name}' does not exist." +
+          Chef::Log.info "Device '#{@current_resource.name}' does not exist." +
             " This device may have been deleted or never been created."
+          return
         elsif @current_resource.state != "in-use"
           Chef::Log.info "Volume '#{@current_resource.name}' is not attached."
           Chef::Log.info "Volume status: '#{@current_resource.state}'."
