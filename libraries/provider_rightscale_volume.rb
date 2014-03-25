@@ -319,7 +319,7 @@ class Chef
           else
             Chef::Log.info "Snapshot found with snapshot ID '#{snapshot_id}'"
             Chef::Log.info "Snapshot name - '#{snapshot.show.name}' Snapshot state - '#{snapshot.show.state}'"
-            params[:parent_volume_snapshot_href] = snapshot.href
+            params[:volume][:parent_volume_snapshot_href] = snapshot.href
           end
         end
 
