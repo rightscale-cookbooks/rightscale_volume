@@ -310,6 +310,9 @@ class Chef
         # If description parameter is nil or empty do not pass it to the API
         params[:volume][:description] = description unless (description.nil? || description.empty?)
 
+        # If IOPS option is provided, set the IOPS
+        params[:volume][:iops] = options[:iops] if options[:iops]
+
         # If snapshot_id is provided in the arguments, find the snapshot
         # and create the volume from the snapshot found
         unless snapshot_id.nil?
