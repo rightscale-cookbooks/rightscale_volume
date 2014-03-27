@@ -126,8 +126,9 @@ class Chef
           @new_resource.updated_by_last_action(true)
           Chef::Log.info " Successfully deleted volume '#{@current_resource.name}'"
         else
-          if node['cloud']['provider'] == 'rackspace-ng'
+          if ['rackspace-ng', 'openstack'].include?(node['cloud']['provider'])
             Chef::Log.info "Volume '#{@current_resource.name}' was not deleted!"
+            delete_device_hash
           else
             raise "Volume '#{@current_resource.name}' was not deleted!"
           end
@@ -441,9 +442,12 @@ class Chef
           begin
             Chef::Log.info "Performing volume destroy..."
             volume.destroy
-          rescue RightApi::Exceptions::ApiException => e
+          rescue RightApi::ApiError => e
             http_code = e.message.match("HTTP Code: ([0-9]+)")[1]
-            if http_code == "422" && e.message =~ /Volume still has \d+ dependent snapshots/
+            if http_code == "422" && (
+              e.message =~ /Volume still has \d+ dependent snapshots/ ||
+              e.message =~ /You cannot delete a volume if it has snapshots associated with it/
+            )
               Chef::Log.warn "#{e.message}. Cannot destroy volume #{volume.show.name}"
               return false
             else
