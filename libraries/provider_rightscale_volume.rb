@@ -29,7 +29,7 @@ class Chef
       # and right_api_client for making API calls.
       #
       def load_current_resource
-        @current_resource ||= Chef::Resource::RightscaleVolume.new(@new_resource.name)
+        @current_resource ||= Chef::Resource::RightscaleVolume.new(@new_resource.nickname)
         node.set['rightscale_volume'] ||= {}
 
         @api_client = initialize_api_client
@@ -37,7 +37,7 @@ class Chef
         # If the volume name does not exist in the device hash, it is not probably created
         # or may have been deleted
         unless node['rightscale_volume'][@current_resource.name].nil?
-          @current_resource.volume_id = node['rightscale_volume'][@current_resource.name]['volume_id']
+          @current_resource.volume_id node['rightscale_volume'][@current_resource.name]['volume_id']
           @current_resource.device = node['rightscale_volume'][@current_resource.name]['device']
 
           # Get the volume details from the API
@@ -48,12 +48,12 @@ class Chef
               " could not be found in the cloud"
           else
             volume_details = volume.show
-            @current_resource.size = volume_details.size.to_i
-            @current_resource.description = volume_details.description
+            @current_resource.size volume_details.size.to_i
+            @current_resource.description volume_details.description
             @current_resource.state = volume_details.status
           end
         end
-        @current_resource.timeout = @new_resource.timeout if @new_resource.timeout
+        @current_resource.timeout(@new_resource.timeout) if @new_resource.timeout
 
         @current_resource
       end
@@ -85,7 +85,7 @@ class Chef
           Chef::Log.info "Creating a new volume '#{@current_resource.name}'..."
         end
         volume = create_volume(
-          @new_resource.name,
+          @new_resource.nickname,
           @new_resource.size,
           @new_resource.description,
           @new_resource.snapshot_id,
@@ -95,7 +95,7 @@ class Chef
         if volume.nil?
           raise "Volume '#{@current_resource.name}' was not created successfully!"
         else
-          @current_resource.volume_id = volume.resource_uid
+          @current_resource.volume_id volume.resource_uid
 
           # Store all volume information in node variable
           save_device_hash
