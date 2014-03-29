@@ -23,8 +23,6 @@ class Chef
   class Resource
     # A resource class for 'rightscale_volume' cookbook.
     class RightscaleVolume < Chef::Resource
-      identity_attr :name
-
       # Volume state
       attr_accessor :state
 
@@ -58,7 +56,6 @@ class Chef
           :name,
           arg,
           :kind_of => String,
-          :name_attribute => true,
         )
       end
 

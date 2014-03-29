@@ -29,6 +29,7 @@ class Chef
       # and right_api_client for making API calls.
       #
       def load_current_resource
+        @new_resource.nickname(@new_resource.name) unless @new_resource.nickname
         @current_resource ||= Chef::Resource::RightscaleVolume.new(@new_resource.nickname)
         node.set['rightscale_volume'] ||= {}
 
