@@ -234,6 +234,8 @@ ruby_block 'ensure volume 2 deleted' do
   block do
     if is_volume_deleted?(test_volume_2)
       Chef::Log.info 'TESTING action_delete -- PASSED'
+    elsif ['rackspace-ng', 'openstack'].include?(node['cloud']['provider'])
+      Chef::Log.info 'TESTING action_delete -- SKIPPED cannot delete volume if it has dependent snapshots'
     else
       raise 'TESTING action_delete -- FAILED'
     end
