@@ -55,7 +55,7 @@ class Chef
             @current_resource.state = volume_details.status
           end
         end
-        @current_resource.timeout(@new_resource.timeout) if @new_resource.timeout
+        @current_resource.timeout @new_resource.timeout if @new_resource.timeout
 
         @current_resource
       end
