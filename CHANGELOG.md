@@ -3,6 +3,17 @@ rightscale_volume Cookbook CHANGELOG
 
 This file is used to list changes made in each version of the rightscale_volume cookbook.
 
+v1.1.0
+------
+
+- A `nickname` attribute is added which defaults to the value given in name attribute. This is useful if there are
+  multiple resource actions on the same resource and the name needs to be unique.
+- The `:detach` action will not raise an exception if the volume is not found.
+- Fixed a bug where the volume was not created from the snapshot properly.
+- The exception raised when a volume is deleted on OpenStack where it has dependent snapshots is rescued and logged.
+- AWS Provisioned IOPS is supported on volume creation.
+- Removed unused `delayed_evaluator` cookbook now that the `lazy` evaluator is included in Chef 11.
+
 v1.0.1
 ------
 
