@@ -139,7 +139,7 @@ describe Chef::Provider::RightscaleVolume do
 
     context "when the volume does not exist in the node" do
       it "should return current_resource" do
-        new_resource.name = 'new_test_volume'
+        new_resource.nickname 'new_test_volume'
         provider.load_current_resource
         provider.current_resource.volume_id.should be_nil
         provider.current_resource.state.should be_nil
@@ -207,8 +207,8 @@ describe Chef::Provider::RightscaleVolume do
     before(:each) do
       node.set['rightscale_volume'] = {}
 
-      new_resource.size = volume_stub.size.to_i
-      new_resource.description = volume_stub.description
+      new_resource.size volume_stub.size.to_i
+      new_resource.description volume_stub.description
 
       provider.stub(:find_volumes).and_return(array_of(volume_resource))
       provider.new_resource = new_resource
@@ -223,7 +223,7 @@ describe Chef::Provider::RightscaleVolume do
 
         context "trying to create a volume with a specific ID" do
           it "should not create the volume" do
-            new_resource.volume_id = 'some_id'
+            new_resource.volume_id 'some_id'
             provider.should_not_receive(:create_volume)
             expect {
               run_action(:create)
@@ -234,7 +234,7 @@ describe Chef::Provider::RightscaleVolume do
         context "given a snapshot ID" do
           it "should create a volume from the snapshot" do
             snapshot_id = 'some_snapshot_id'
-            new_resource.snapshot_id = snapshot_id
+            new_resource.snapshot_id snapshot_id
             provider.should_receive(:create_volume).with(
               volume_stub.name,
               volume_stub.size.to_i,
@@ -269,7 +269,7 @@ describe Chef::Provider::RightscaleVolume do
         context "requested volume size is different from the one already exists" do
           it "should raise an exception" do
             create_test_volume
-            provider.new_resource.size = 10
+            provider.new_resource.size 10
             expect {
               run_action(:create)
             }.to raise_error(RuntimeError)
@@ -378,7 +378,7 @@ describe Chef::Provider::RightscaleVolume do
         it "should raise an exception" do
           expect {
             run_action(:detach)
-          }.to raise_error(RuntimeError)
+          }.not_to raise_error(RuntimeError)
         end
       end
     end

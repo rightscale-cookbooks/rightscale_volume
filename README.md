@@ -51,7 +51,7 @@ Creates a new volume in the cloud. This is the default action.
     <th>Default</th>
   </tr>
   <tr>
-    <td>name</td>
+    <td>nickname</td>
     <td>Name of the volume to be created</td>
     <td></td>
   </tr>
@@ -96,7 +96,7 @@ Attaches a volume to a RightScale server.
     <th>Default</th>
   </tr>
   <tr>
-    <td>name</td>
+    <td>nickname</td>
     <td>Name of the volume to be attached</td>
     <td></td>
   </tr>
@@ -120,7 +120,7 @@ Detaches a volume from a RightScale server.
     <th>Default</th>
   </tr>
   <tr>
-    <td>name</td>
+    <td>nickname</td>
     <td>Name of the volume</td>
     <td></td>
   </tr>
@@ -144,7 +144,7 @@ Deletes a volume from the cloud.
     <th>Default</th>
   </tr>
   <tr>
-    <td>name</td>
+    <td>nickname</td>
     <td>Name of the volume</td>
     <td></td>
   </tr>
@@ -167,7 +167,7 @@ Takes a snapshot of a volume.
     <th>Default</th>
   </tr>
   <tr>
-    <td>name</td>
+    <td>nickname</td>
     <td>Name of the volume</td>
     <td></td>
   </tr>
@@ -191,7 +191,7 @@ Cleans up old snapshots of a volume.
     <th>Default</th>
   </tr>
   <tr>
-    <td>name</td>
+    <td>nickname</td>
     <td>Name of the volume</td>
     <td></td>
   </tr>

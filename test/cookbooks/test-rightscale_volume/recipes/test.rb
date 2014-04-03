@@ -23,10 +23,6 @@ end
 
 include_recipe 'rightscale_volume::default'
 
-# Include cookbook-delayed_evaluator for delaying evaluation of node attributes
-# to converge phase instead of compile phase
-include_recipe 'delayed_evaluator'
-
 # Set minimum volume size to 100GB for Rackspace Open Clouds (cloud-specific feature)
 volume_size = node[:cloud][:provider] == 'rackspace-ng' ? 100 : 1
 
@@ -238,6 +234,8 @@ ruby_block 'ensure volume 2 deleted' do
   block do
     if is_volume_deleted?(test_volume_2)
       Chef::Log.info 'TESTING action_delete -- PASSED'
+    elsif ['rackspace-ng', 'openstack'].include?(node['cloud']['provider'])
+      Chef::Log.info 'TESTING action_delete -- SKIPPED cannot delete volume if it has dependent snapshots'
     else
       raise 'TESTING action_delete -- FAILED'
     end

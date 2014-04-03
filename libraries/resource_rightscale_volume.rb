@@ -23,35 +23,11 @@ class Chef
   class Resource
     # A resource class for 'rightscale_volume' cookbook.
     class RightscaleVolume < Chef::Resource
-      # Volume name
-      attr_accessor :name
-
-      # Volume ID
-      attr_accessor :volume_id
-
-      # Volume size
-      attr_accessor :size
-
       # Volume state
       attr_accessor :state
 
       # Device to which the volume is attached
       attr_accessor :device
-
-      # Description for the volume
-      attr_accessor :description
-
-      # Snapshot ID from which the volume must be created
-      attr_accessor :snapshot_id
-
-      # Snapshot name to be created
-      attr_accessor :snapshot_name
-
-      # Number of snapshots to retain when running the +:cleanup+ action
-      attr_accessor :max_snapshots
-
-      # Timeout value (in minutes) for rightscale_volume actions
-      attr_accessor :timeout
 
       # Initializes rightscale_volume resource.
       #
@@ -75,11 +51,11 @@ class Chef
       #
       # @return [String] the volume name
       #
-      def name(arg = nil)
+      def nickname(arg = nil)
         set_or_return(
           :name,
           arg,
-          :kind_of => String
+          :kind_of => String,
         )
       end
 

@@ -29,31 +29,33 @@ class Chef
       # and right_api_client for making API calls.
       #
       def load_current_resource
+        @new_resource.nickname(@new_resource.name) unless @new_resource.nickname
         @current_resource ||= Chef::Resource::RightscaleVolume.new(@new_resource.name)
+        @current_resource.nickname @new_resource.nickname
         node.set['rightscale_volume'] ||= {}
 
         @api_client = initialize_api_client
 
         # If the volume name does not exist in the device hash, it is not probably created
         # or may have been deleted
-        unless node['rightscale_volume'][@current_resource.name].nil?
-          @current_resource.volume_id = node['rightscale_volume'][@current_resource.name]['volume_id']
-          @current_resource.device = node['rightscale_volume'][@current_resource.name]['device']
+        unless node['rightscale_volume'][@current_resource.nickname].nil?
+          @current_resource.volume_id node['rightscale_volume'][@current_resource.nickname]['volume_id']
+          @current_resource.device = node['rightscale_volume'][@current_resource.nickname]['device']
 
           # Get the volume details from the API
-          volume = find_volumes(:resource_uid => node['rightscale_volume'][@current_resource.name]['volume_id']).first
+          volume = find_volumes(:resource_uid => node['rightscale_volume'][@current_resource.nickname]['volume_id']).first
           if volume.nil?
             delete_device_hash
-            raise "Volume '#{node['rightscale_volume'][@current_resource.name]}'" +
+            raise "Volume '#{node['rightscale_volume'][@current_resource.nickname]}'" +
               " could not be found in the cloud"
           else
             volume_details = volume.show
-            @current_resource.size = volume_details.size.to_i
-            @current_resource.description = volume_details.description
+            @current_resource.size volume_details.size.to_i
+            @current_resource.description volume_details.description
             @current_resource.state = volume_details.status
           end
         end
-        @current_resource.timeout = @new_resource.timeout if @new_resource.timeout
+        @current_resource.timeout @new_resource.timeout if @new_resource.timeout
 
         @current_resource
       end
@@ -67,13 +69,13 @@ class Chef
         # If volume of the same size already created do nothing. Else raise an exception.
         if @current_resource.state
           if @current_resource.size == @new_resource.size
-            msg = "Volume '#{@current_resource.name} (#{@current_resource.size} GB)' already exists.\n"
+            msg = "Volume '#{@current_resource.nickname} (#{@current_resource.size} GB)' already exists.\n"
             msg << "Volume ID: '#{@current_resource.volume_id}'\n" if @current_resource.volume_id
             msg << "Attached to: '#{@current_resource.device}'" if @current_resource.device
             Chef::Log.info msg
             return
           else
-            raise "Volume with name '#{@current_resource.name} (#{@current_resource.size} GB)' already exists." +
+            raise "Volume with name '#{@current_resource.nickname} (#{@current_resource.size} GB)' already exists." +
               " Cannot create another volume of size #{@new_resource.size} GB with the same name!"
           end
         end
@@ -82,10 +84,10 @@ class Chef
         if @new_resource.snapshot_id
           Chef::Log.info "Creating a new volume from snapshot '#{@new_resource.snapshot_id}'..."
         else
-          Chef::Log.info "Creating a new volume '#{@current_resource.name}'..."
+          Chef::Log.info "Creating a new volume '#{@current_resource.nickname}'..."
         end
         volume = create_volume(
-          @new_resource.name,
+          @new_resource.nickname,
           @new_resource.size,
           @new_resource.description,
           @new_resource.snapshot_id,
@@ -93,14 +95,14 @@ class Chef
         )
 
         if volume.nil?
-          raise "Volume '#{@current_resource.name}' was not created successfully!"
+          raise "Volume '#{@current_resource.nickname}' was not created successfully!"
         else
-          @current_resource.volume_id = volume.resource_uid
+          @current_resource.volume_id volume.resource_uid
 
           # Store all volume information in node variable
           save_device_hash
           @new_resource.updated_by_last_action(true)
-          Chef::Log.info "Volume '#{@current_resource.name}' successfully created"
+          Chef::Log.info "Volume '#{@current_resource.nickname}' successfully created"
         end
       end
 
@@ -109,7 +111,7 @@ class Chef
       def action_delete
         # If volume already deleted, do nothing.
         if @current_resource.state.nil?
-          Chef::Log.info "Device '#{@current_resource.name}' does not exist." +
+          Chef::Log.info "Device '#{@current_resource.nickname}' does not exist." +
             " This device may have been deleted or never been created."
           return
         elsif @current_resource.state == "in-use"
@@ -119,17 +121,18 @@ class Chef
           raise error_msg
         end
 
-        Chef::Log.info "Deleting volume '#{@current_resource.name}'..."
+        Chef::Log.info "Deleting volume '#{@current_resource.nickname}'..."
         if delete_volume(@current_resource.volume_id)
           # Set device in node variable to nil after successfully deleting the volume
           delete_device_hash
           @new_resource.updated_by_last_action(true)
-          Chef::Log.info " Successfully deleted volume '#{@current_resource.name}'"
+          Chef::Log.info " Successfully deleted volume '#{@current_resource.nickname}'"
         else
-          if node['cloud']['provider'] == 'rackspace-ng'
-            Chef::Log.info "Volume '#{@current_resource.name}' was not deleted!"
+          if ['rackspace-ng', 'openstack'].include?(node['cloud']['provider'])
+            Chef::Log.info "Volume '#{@current_resource.nickname}' was not deleted!"
+            delete_device_hash
           else
-            raise "Volume '#{@current_resource.name}' was not deleted!"
+            raise "Volume '#{@current_resource.nickname}' was not deleted!"
           end
         end
       end
@@ -139,26 +142,26 @@ class Chef
       def action_attach
         # If volume is not created or already attached, do nothing
         if @current_resource.state.nil?
-          raise "Device '#{@current_resource.name}' does not exist." +
+          raise "Device '#{@current_resource.nickname}' does not exist." +
             " This device may have been deleted or never been created."
         elsif @current_resource.state == "in-use"
-          msg = "Volume '#{@current_resource.name}' is already attached"
+          msg = "Volume '#{@current_resource.nickname}' is already attached"
           msg << " to '#{@current_resource.device}'" unless @current_resource.device.nil?
           Chef::Log.info msg
           return
         end
 
-        Chef::Log.info "Attaching volume '#{@current_resource.name}'..."
+        Chef::Log.info "Attaching volume '#{@current_resource.nickname}'..."
 
         @current_resource.device = attach_volume(@current_resource.volume_id, get_next_device(device_letter_exclusions))
 
         if @current_resource.device.nil?
-          raise "Volume '#{@current_resource.name}' was not attached successfully!"
+          raise "Volume '#{@current_resource.nickname}' was not attached successfully!"
         else
           # Store all information in node variable
           save_device_hash
           @new_resource.updated_by_last_action(true)
-          Chef::Log.info "Volume '#{@current_resource.name}' successfully attached to '#{@current_resource.device}'"
+          Chef::Log.info "Volume '#{@current_resource.nickname}' successfully attached to '#{@current_resource.device}'"
         end
       end
 
@@ -167,15 +170,16 @@ class Chef
       def action_detach
         # If volume is not available or not attached, do nothing
         if @current_resource.state.nil?
-          raise "Device '#{@current_resource.name}' does not exist." +
+          Chef::Log.info "Device '#{@current_resource.nickname}' does not exist." +
             " This device may have been deleted or never been created."
+          return
         elsif @current_resource.state != "in-use"
-          Chef::Log.info "Volume '#{@current_resource.name}' is not attached."
+          Chef::Log.info "Volume '#{@current_resource.nickname}' is not attached."
           Chef::Log.info "Volume status: '#{@current_resource.state}'."
           return
         end
 
-        Chef::Log.info "Detaching volume '#{@current_resource.name}'..."
+        Chef::Log.info "Detaching volume '#{@current_resource.nickname}'..."
 
         if detach_volume(@current_resource.volume_id)
           @current_resource.device = nil
@@ -183,9 +187,9 @@ class Chef
           # Store all information in node variable
           save_device_hash
           @new_resource.updated_by_last_action(true)
-          Chef::Log.info "Volume '#{@current_resource.name}' successfully detached."
+          Chef::Log.info "Volume '#{@current_resource.nickname}' successfully detached."
         else
-          raise "Volume '#{@current_resource.name}' was not successfully detached!"
+          raise "Volume '#{@current_resource.nickname}' was not successfully detached!"
         end
       end
 
@@ -193,20 +197,20 @@ class Chef
       #
       def action_snapshot
         if @current_resource.state.nil?
-          raise "Device '#{@current_resource.name}' does not exist." +
+          raise "Device '#{@current_resource.nickname}' does not exist." +
             " This device may have been deleted or never been created."
         end
 
-        Chef::Log.info "Creating snapshot of volume '#{@current_resource.name}'..."
+        Chef::Log.info "Creating snapshot of volume '#{@current_resource.nickname}'..."
 
-        snapshot_name = @current_resource.name
+        snapshot_name = @current_resource.nickname
         snapshot_name = @new_resource.snapshot_name if @new_resource.snapshot_name
         snapshot = create_snapshot(snapshot_name, @current_resource.volume_id)
 
         if snapshot.nil?
-          raise "Snapshot of volume '#{@current_resource.name}' not created successfully!"
+          raise "Snapshot of volume '#{@current_resource.nickname}' not created successfully!"
         else
-          Chef::Log.info "Snapshot of volume '#{@current_resource.name}' successfully created."
+          Chef::Log.info "Snapshot of volume '#{@current_resource.nickname}' successfully created."
           Chef::Log.info "Snapshot name: '#{snapshot.name}', ID: '#{snapshot.resource_uid}'"
         end
       end
@@ -215,7 +219,7 @@ class Chef
       #
       def action_cleanup
         if @current_resource.state.nil?
-          raise "Device '#{@current_resource.name}' does not exist." +
+          raise "Device '#{@current_resource.nickname}' does not exist." +
             " This device may have been deleted or never been created."
         end
 
@@ -237,15 +241,15 @@ class Chef
       # Removes the device hash from the node variable.
       #
       def delete_device_hash
-        node.set['rightscale_volume'][@current_resource.name] = nil
+        node.set['rightscale_volume'][@current_resource.nickname] = nil
       end
 
       # Saves device hash to the node variable.
       #
       def save_device_hash
-        node.set['rightscale_volume'][@current_resource.name] ||= {}
-        node.set['rightscale_volume'][@current_resource.name]['volume_id'] = @current_resource.volume_id
-        node.set['rightscale_volume'][@current_resource.name]['device'] = @current_resource.device
+        node.set['rightscale_volume'][@current_resource.nickname] ||= {}
+        node.set['rightscale_volume'][@current_resource.nickname]['volume_id'] = @current_resource.volume_id
+        node.set['rightscale_volume'][@current_resource.nickname]['device'] = @current_resource.device
       end
 
       # Initializes API client for handling API 1.5 calls.
@@ -309,6 +313,9 @@ class Chef
         # If description parameter is nil or empty do not pass it to the API
         params[:volume][:description] = description unless (description.nil? || description.empty?)
 
+        # If IOPS option is provided, set the IOPS
+        params[:volume][:iops] = options[:iops] if options[:iops]
+
         # If snapshot_id is provided in the arguments, find the snapshot
         # and create the volume from the snapshot found
         unless snapshot_id.nil?
@@ -318,7 +325,7 @@ class Chef
           else
             Chef::Log.info "Snapshot found with snapshot ID '#{snapshot_id}'"
             Chef::Log.info "Snapshot name - '#{snapshot.show.name}' Snapshot state - '#{snapshot.show.state}'"
-            params[:parent_volume_snapshot_href] = snapshot.href
+            params[:volume][:parent_volume_snapshot_href] = snapshot.href
           end
         end
 
@@ -437,9 +444,12 @@ class Chef
           begin
             Chef::Log.info "Performing volume destroy..."
             volume.destroy
-          rescue RightApi::Exceptions::ApiException => e
+          rescue RightApi::ApiError => e
             http_code = e.message.match("HTTP Code: ([0-9]+)")[1]
-            if http_code == "422" && e.message =~ /Volume still has \d+ dependent snapshots/
+            if http_code == "422" && (
+              e.message =~ /Volume still has \d+ dependent snapshots/ ||
+              e.message =~ /You cannot delete a volume if it has snapshots associated with it/
+            )
               Chef::Log.warn "#{e.message}. Cannot destroy volume #{volume.show.name}"
               return false
             else
