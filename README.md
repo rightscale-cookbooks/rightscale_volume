@@ -13,199 +13,14 @@ cloud server (within the same datacenter / zone) and persists independently from
 By using the RightScale API, this resource gives your recipes cloud portability without the need
 to store your cloud credentials on each server.
 
+Github Repository: [https://github.com/rightscale-cookbooks/rightscale_volume](https://github.com/rightscale-cookbooks/rightscale_volume)
+
 # Requirements
 
 * The system being configured must be a RightScale managed VM to have the required access to the RightScale API.
-
 * Chef 10 or higher.
-
 * Also requires a RightScale account that is registered with all the cloud vendors
   you expect to provision on (e.g. AWS, Rackspace, Openstack, CloudStack, GCE, and Azure).
-
-
-# Recipes
-
-## default
-
-The default recipe installs the `right_api_client` RubyGem, which this cookbook requires in
-order to work with the RightScale API.
-
-
-# Resource/Providers
-
-## rightscale_volume
-
-A resource to create, attach and manage a single "volume" on public and private IaaS clouds.
-
-
-### Action: create
-
-Creates a new volume in the cloud. This is the default action.
-
-#### Parameters
-
-<table>
-  <tr>
-    <th>Name</th>
-    <th>Description</th>
-    <th>Default</th>
-  </tr>
-  <tr>
-    <td>nickname</td>
-    <td>Name of the volume to be created</td>
-    <td></td>
-  </tr>
-  <tr>
-    <td>size</td>
-    <td>Volume size in gigabytes</td>
-    <td>1</td>
-  </tr>
-  <tr>
-    <td>description</td>
-    <td>Description for the volume</td>
-    <td></td>
-  </tr>
-  <tr>
-    <td>snapshot_id</td>
-    <td>Snapshot ID to create the volume from</td>
-    <td></td>
-  </tr>
-  <tr>
-    <td>options</td>
-    <td>Optional parameters hash for volume creation. For example, <tt>+:volume_type+</tt> on Rackspace Open Clouds
-        and <tt>+:iops+</tt> on AWS clouds</td>
-    <td>{}</td>
-  </tr>
-  <tr>
-    <td>timeout</td>
-    <td>Throws an error if the volume could not be created by the cloud provider within this timeout (in minutes)</td>
-    <td>15</td>
-  </tr>
-</table>
-
-### Action: attach
-
-Attaches a volume to a RightScale server.
-
-#### Parameters
-
-<table>
-  <tr>
-    <th>Name</th>
-    <th>Description</th>
-    <th>Default</th>
-  </tr>
-  <tr>
-    <td>nickname</td>
-    <td>Name of the volume to be attached</td>
-    <td></td>
-  </tr>
-  <tr>
-    <td>timeout</td>
-    <td>Throws an error if the volume could not be attached to the server within this timeout (in minutes)</td>
-    <td>15</td>
-  </tr>
-</table>
-
-### Action: detach
-
-Detaches a volume from a RightScale server.
-
-#### Parameters
-
-<table>
-  <tr>
-    <th>Name</th>
-    <th>Description</th>
-    <th>Default</th>
-  </tr>
-  <tr>
-    <td>nickname</td>
-    <td>Name of the volume</td>
-    <td></td>
-  </tr>
-  <tr>
-    <td>timeout</td>
-    <td>Throws an error if volume could not be detached from the server within this timeout (in minutes)</td>
-    <td>15</td>
-  </tr>
-</table>
-
-### Action: delete
-
-Deletes a volume from the cloud.
-
-#### Parameters
-
-<table>
-  <tr>
-    <th>Name</th>
-    <th>Description</th>
-    <th>Default</th>
-  </tr>
-  <tr>
-    <td>nickname</td>
-    <td>Name of the volume</td>
-    <td></td>
-  </tr>
-  <tr>
-    <td>timeout</td>
-    <td>Throws an error if volume could not be deleted by the cloud provider within this timeout (in minutes)</td>
-    <td>15</td>
-  </tr>
-</table>
-
-### Action: snapshot
-
-Takes a snapshot of a volume.
-
-#### Parameters
-<table>
-  <tr>
-    <th>Name</th>
-    <th>Description</th>
-    <th>Default</th>
-  </tr>
-  <tr>
-    <td>nickname</td>
-    <td>Name of the volume</td>
-    <td></td>
-  </tr>
-  <tr>
-    <td>timeout</td>
-    <td>Throws an error if the snapshot could not be taken  by the cloud provider within this timeout (in minutes)</td>
-    <td>15</td>
-  </tr>
-</table>
-
-### Action: cleanup
-
-Cleans up old snapshots of a volume.
-
-#### Parameters
-
-<table>
-  <tr>
-    <th>Name</th>
-    <th>Description</th>
-    <th>Default</th>
-  </tr>
-  <tr>
-    <td>nickname</td>
-    <td>Name of the volume</td>
-    <td></td>
-  </tr>
-  <tr>
-    <td>max_snapshots</td>
-    <td>The number of snapshots of a volume to retain when running the <tt>+:cleanup+</tt> action</td>
-    <td>60</td>
-  </tr>
-  <tr>
-    <td>timeout</td>
-    <td>Throws an error if snapshots could not be cleaned up in the cloud within this timeout (in minutes)</td>
-    <td>15</td>
-  </tr>
-</table>
 
 
 # Usage
@@ -253,6 +68,44 @@ The `size` may or may not be honored (depending on hypervisor used by the cloud 
 If the cloud does not support resize when creating a volume from a snapshot, then the size will be
 the same as the volume from which the snapshot was taken. If resize is supported, additional
 resources will be required to resize the filesystem on the volume.
+
+
+# Recipes
+
+## default
+
+The default recipe installs the `right_api_client` RubyGem, which this cookbook requires in
+order to work with the RightScale API.
+
+
+# Resource/Providers
+
+## rightscale_volume
+
+A resource to create, attach and manage a single "volume" on public and private IaaS clouds.
+
+### Actions
+
+| Name | Description | Default |
+| --- | --- | --- |
+| `:create` | Creates a new volume in the cloud | yes |
+| `:attach` | Attaches a volume to a RightScale server | |
+| `:snapshot` | Takes a snapshot of a volume | |
+| `:detach` | Detaches a volume from a RightScale server | |
+| `:delete` | Deletes a volume from the cloud | |
+| `:cleanup` | Cleans up old snapshots of a volume | |
+
+### Attributes
+
+| Name | Description | Default | Required |
+| --- | --- | --- | --- |
+| `nickname` | Name of the volume to be created | | No |
+| `size` | Volume size in gigabytes | `1` | No |
+| `description` | Description for the volume | | No |
+| `snapshot_id` | Snapshot ID to create the volume from | | No |
+| `options` | Optional parameters hash for volume creation. For example, `+:volume_type+` on Rackspace Open Clouds and `+:iops+` on AWS clouds | `{}` | No |
+| `timeout` | Throws an error if an action could not be completed within this timeout (in minutes) | `15` | No |
+| `max_snapshots` | The number of snapshots of a volume to retain when running the `+:cleanup+` action | `60` | No |
 
 
 # Cloud Specific Notes
