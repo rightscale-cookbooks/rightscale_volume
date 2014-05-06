@@ -18,7 +18,7 @@ Github Repository: [https://github.com/rightscale-cookbooks/rightscale_volume](h
 # Requirements
 
 * The system being configured must be a RightScale managed VM to have the required access to the RightScale API.
-* Chef 10 or higher.
+* Chef 11 or higher.
 * Also requires a RightScale account that is registered with all the cloud vendors
   you expect to provision on (e.g. AWS, Rackspace, Openstack, CloudStack, GCE, and Azure).
 
@@ -28,7 +28,7 @@ Github Repository: [https://github.com/rightscale-cookbooks/rightscale_volume](h
 The resource only handles manipulating the volume. Additional resources need to be created in
 the recipe to manage the attached volume as a filesystem or logical volume.
 
-The following example will create a 10G volume, attach it to the instance, formats the device as ext4
+The following example will create a 10 GB volume, attach it to the instance, formats the device as ext4
 and mounts it to '/mnt/storage'.
 
 ```ruby
@@ -64,7 +64,7 @@ rightscale_volume "db_data_volume_from_snapshot" do
 end
 ```
 
-The `size` may or may not be honored (depending on hypervisor used by the cloud vendor).
+The `size` may or may not be honored depending on hypervisor used by the cloud vendor.
 If the cloud does not support resize when creating a volume from a snapshot, then the size will be
 the same as the volume from which the snapshot was taken. If resize is supported, additional
 resources will be required to resize the filesystem on the volume.
@@ -82,7 +82,7 @@ order to work with the RightScale API.
 
 ## rightscale_volume
 
-A resource to create, attach and manage a single "volume" on public and private IaaS clouds.
+A resource to create, attach, and manage a single "volume" on public and private IaaS clouds.
 
 ### Actions
 
@@ -103,9 +103,9 @@ A resource to create, attach and manage a single "volume" on public and private 
 | `size` | Volume size in gigabytes | `1` | No |
 | `description` | Description for the volume | | No |
 | `snapshot_id` | Snapshot ID to create the volume from | | No |
-| `options` | Optional parameters hash for volume creation. For example, `+:volume_type+` on Rackspace Open Clouds and `+:iops+` on AWS clouds | `{}` | No |
+| `options` | Optional parameters hash for volume creation. For example, `:volume_type` on Rackspace Open Clouds and `:iops` on AWS clouds | `{}` | No |
 | `timeout` | Throws an error if an action could not be completed within this timeout (in minutes) | `15` | No |
-| `max_snapshots` | The number of snapshots of a volume to retain when running the `+:cleanup+` action | `60` | No |
+| `max_snapshots` | The number of snapshots of a volume to retain when running the `:cleanup` action | `60` | No |
 
 
 # Cloud Specific Notes
@@ -114,10 +114,20 @@ A resource to create, attach and manage a single "volume" on public and private 
 
 * For this resource to work on a EC2 cloud, the RightScale account must be on a
   [UCP](http://support.rightscale.com/12-Guides/Dashboard_Users_Guide/Unified_Cloud_Platform) cluster.
+* This cloud supports creating volumes with provisioned IOPS. To create a volume with IOPS on EC2
+  pass the `:iops` option to the `options` hash as shown below
+
+```ruby
+rightscale_volume "volume_with_iops" do
+  size 10
+  options {:iops => 100}
+  action :create
+end
+```
 
 ## Rackspace Open Cloud
 
-* The minimum volume size offered by this cloud is 100 GB. The `+:create+` volume action throws an
+* The minimum volume size offered by this cloud is 100 GB. The `:create` volume action throws an
   error if the requested volume size is lesser than the minimum size offered.
 * This cloud supports two types of volume - SATA and SSD. The type of volume to be created can be
   passed to the `options` parameter as below (defaults to SATA if none specified)
@@ -129,14 +139,14 @@ rightscale_volume "open_cloud_volume" do
   action :create
 end
 ```
-* A volume cannot be deleted from this cloud, if it has at least one dependent snapshot(s)
-  i.e., snapshots created from this volume. To delete such a volume, all dependent snapshots must be
-  cleaned up first. The `+:delete+` action does not delete such a volume and throws a warning message in the logs.
+* A volume cannot be deleted from this cloud if at least one snapshot created from this volume
+  exists. To delete such a volume, all dependent snapshots must be cleaned up first. The `:delete`
+  action does not delete such a volume and throws a warning message in the logs.
 
 ## CloudStack Clouds
 
 * CloudStack has the concept of a "custom" disk offering. If a "custom volume type" is supported in the cloud,
-  then the `+:create+` action creates a volume with the requested size. If "custom volume type" is not supported
+  then the `:create` action creates a volume with the requested size. If "custom volume type" is not supported
   then this action will use the "closest volume type" with size greater than or equal to the requested size.
   If there are multiple custom volume types or multiple volume types with the closest size, the one with the greatest
   resource UID will be used.
