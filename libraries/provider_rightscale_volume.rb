@@ -46,7 +46,7 @@ class Chef
           volume = find_volumes(:resource_uid => node['rightscale_volume'][@current_resource.nickname]['volume_id']).first
           if volume.nil?
             delete_device_hash
-            raise "Volume '#{node['rightscale_volume'][@current_resource.nickname]}'" +
+            Chef::Log.info "Volume '#{node['rightscale_volume'][@current_resource.nickname]}'" +
               " could not be found in the cloud"
           else
             volume_details = volume.show

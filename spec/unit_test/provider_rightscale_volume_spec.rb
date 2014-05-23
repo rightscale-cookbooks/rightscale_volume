@@ -164,11 +164,11 @@ describe Chef::Provider::RightscaleVolume do
       end
 
       context "when the volume does not exist in the cloud" do
-        it "should raise an exception" do
+        it "should not raise an exception" do
           provider.stub(:find_volumes).and_return([])
           expect {
             provider.load_current_resource
-          }.to raise_error(RuntimeError)
+          }.not_to raise_error(RuntimeError)
         end
       end
     end
