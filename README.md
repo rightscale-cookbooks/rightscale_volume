@@ -1,6 +1,12 @@
 # rightscale_volume cookbook
 
-[![Build Status](https://travis-ci.org/rightscale-cookbooks/rightscale_volume.png?branch=master)](https://travis-ci.org/rightscale-cookbooks/rightscale_volume)
+[![Cookbook](https://img.shields.io/cookbook/v/rightscale_volume.svg?style=flat)][cookbook]
+[![Release](https://img.shields.io/github/release/rightscale-cookbooks/rightscale_volume.svg?style=flat)][release]
+[![Build Status](https://img.shields.io/travis/rightscale-cookbooks/rightscale_volume.svg?style=flat)][travis]
+
+[cookbook]: https://supermarket.getchef.com/cookbooks/rightscale_volume
+[release]: https://github.com/rightscale-cookbooks/rightscale_volume/releases/latest
+[travis]: https://travis-ci.org/rightscale-cookbooks/rightscale_volume
 
 # Description
 
