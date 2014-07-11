@@ -854,9 +854,10 @@ class Chef
       #
       def scan_for_attachments
         # vmware/esx requires the following "hack" to make OS/Linux aware of device
-        # Check for /sys/class/scsi_host/host0/scan if need to run
-        if ::File.exist?('/sys/class/scsi_host/host0/scan')
-          cmd = Mixlib::ShellOut.new("echo '- - -' > /sys/class/scsi_host/host0/scan")
+        # Check for /sys/class/scsi_host/host*/scan if need to run
+        scan_files = ::Dir.glob('/sys/class/scsi_host/host*/scan')
+        scan_files.each do |scan_file|
+          cmd = Mixlib::ShellOut.new("echo '- - -' > #{scan_file}")
           cmd.run_command
           sleep 5
         end
