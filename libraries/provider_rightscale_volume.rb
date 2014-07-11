@@ -853,8 +853,9 @@ class Chef
       # Scans for volume attachments.
       #
       def scan_for_attachments
-        # vmware/esx requires the following "hack" to make OS/Linux aware of device
-        # Check for /sys/class/scsi_host/host*/scan if need to run
+        # vmware/esx requires the following "hack" to make OS/Linux aware of device changes.
+
+        # Check for /sys/class/scsi_host/host*/scan files.
         scan_files = ::Dir.glob('/sys/class/scsi_host/host*/scan')
         scan_files.each do |scan_file|
           cmd = Mixlib::ShellOut.new("echo '- - -' > #{scan_file}")
@@ -862,6 +863,28 @@ class Chef
           sleep 5
         end
       end
+
+      # Scans for volume detachments.
+      #
+      # @param device [String] the device that should be removed.  Example: /dev/sdf
+      #
+      def scan_for_detachment(device = '')
+        # vmware/esx requires the following "hack" to make OS/Linux aware of device changes.
+
+        # Detemine delete_device path from device name passed in.
+        if device =~ /\/dev\/([\W\w]+)$/
+          delete_device = "/sys/block/#{$1}/device/delete"
+        else
+          raise "Invalid device name"
+        end
+
+        if ::File.exist?(delete_device)
+          cmd = Mixlib::ShellOut.new("echo 1 > #{delete_device}")
+          cmd.run_command
+          sleep 5
+        end
+      end
+
     end
   end
 end
