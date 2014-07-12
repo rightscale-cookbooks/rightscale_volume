@@ -308,6 +308,9 @@ class Chef
         params[:volume][:datacenter_href] = datacenter_href["href"] if datacenter_href
 
         volume_type_href = get_volume_type_href(node['cloud']['provider'], size, options)
+        if node['cloud']['provider'] == 'vsphere' && volume_type_href.nil?
+          raise "An existing volume type is required for this cloud."
+        end
         params[:volume][:volume_type_href] = volume_type_href unless volume_type_href.nil?
 
         # If description parameter is nil or empty do not pass it to the API
