@@ -868,13 +868,15 @@ class Chef
       # @return [Array] the device exclusions
       #
       def device_letter_exclusions
-        # /dev/xvdd is assigned to the cdrom device eg., xentools iso (xe-guest-utilities)
-        # that is likely a xenserver-ism
         case node['cloud']['provider']
         when 'cloudstack'
+          # /dev/xvdd is assigned to the cdrom device eg, xentools iso (xe-guest-utilities) that is likely a xenserver-ism
           ['d']
         when 'vsphere'
+          # node_id 7 is reserved for the controller
           ['lsiLogic(0:7)', 'lsiLogic(1:7)', 'lsiLogic(2:7)', 'lsiLogic(3:7)']
+        else
+          []
         end
       end
 
