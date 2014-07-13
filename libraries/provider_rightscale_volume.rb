@@ -36,7 +36,7 @@ class Chef
 
         @api_client = initialize_api_client
 
-        # If the volume name does not exist in the device hash, it is not probably created
+        # If the volume name does not exist in the device hash, it is probably not created
         # or may have been deleted
         unless node['rightscale_volume'][@current_resource.nickname].nil?
           @current_resource.volume_id node['rightscale_volume'][@current_resource.nickname]['volume_id']
@@ -152,7 +152,6 @@ class Chef
         end
 
         Chef::Log.info "Attaching volume '#{@current_resource.nickname}'..."
-
         @current_resource.device = attach_volume(@current_resource.volume_id, get_next_device(device_letter_exclusions))
 
         if @current_resource.device.nil?
@@ -552,6 +551,9 @@ class Chef
           end
         end
 
+        # vSphere images require a rescan for added volumes to be seen by Linux OS.
+        scan_for_attachments if node['cloud']['provider'] == 'vsphere'
+
         # Determine the actual device name
         (Set.new(get_current_devices) - current_devices).first
       end
@@ -755,23 +757,30 @@ class Chef
         end
       end
 
-      # Gets all supported devices from /proc/partitions.
+      # Gets all supported devices from method passed. Default method of 'os' uses /proc/partitions.
+      #
+      # @param method [String] the method to use to obtain current devices. Options currently are 'api' or 'os', 'os' being default.
       #
       # @return [Array] the devices list.
       #
-      def get_current_devices
-        # Read devices that are currently in use from the last column in /proc/partitions
-        partitions = IO.readlines("/proc/partitions").drop(2).map { |line| line.chomp.split.last }
+      def get_current_devices(method = 'os')
 
-        # Eliminate all LVM partitions
-        partitions = partitions.reject { |partition| partition =~ /^dm-\d/ }
+        if method == 'api'
+          attached_devices
+        else
+          # Read devices that are currently in use from the last column in /proc/partitions
+          partitions = IO.readlines("/proc/partitions").drop(2).map { |line| line.chomp.split.last }
 
-        # Get all the devices in the form of sda, xvda, hda, etc.
-        devices = partitions.select { |partition| partition =~ /[a-z]$/ }.sort.map { |device| "/dev/#{device}" }
+          # Eliminate all LVM partitions
+          partitions = partitions.reject { |partition| partition =~ /^dm-\d/ }
 
-        # If no devices found in those forms, check for devices in the form of sda1, xvda1, hda1, etc.
-        if devices.empty?
-          devices = partitions.select { |partition| partition =~ /[0-9]$/ }.sort.map { |device| "/dev/#{device}" }
+          # Get all the devices in the form of sda, xvda, hda, etc.
+          devices = partitions.select { |partition| partition =~ /[a-z]$/ }.sort.map { |device| "/dev/#{device}" }
+
+          # If no devices found in those forms, check for devices in the form of sda1, xvda1, hda1, etc.
+          if devices.empty?
+            devices = partitions.select { |partition| partition =~ /[0-9]$/ }.sort.map { |device| "/dev/#{device}" }
+          end
         end
 
         devices
@@ -786,59 +795,72 @@ class Chef
       # @raise [RuntimeError] if the partition is unknown
       #
       def get_next_device(exclusions = [])
-        # Get the list of currently used devices
-        partitions = get_current_devices
+        if node['cloud']['provider'] == 'vsphere'
 
-        # The AWS EBS documentation recommends using /dev/sd[f-p] for attaching volumes.
-        #
-        # http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-attaching-volume.html
-        #
-        if node['cloud']['provider'] == "ec2" && partitions.last =~ /^\/dev\/(s|xv)d[a-d][0-9]*$/
-          partitions << "/dev/#{$1}de"
-        end
+          # Get list of currently used devices.
+          in_use_devices = get_current_devices('api')
 
-        # The current devices are in the form of sda, hda, xvda, etc.
-        if partitions.first =~ /^\/dev\/([a-z]+d)[a-z]+$/
-          device_type = $1
-
-          # Get the device letter of the last device in the list of current devices
-          partitions.select do |partition|
-            partition =~ /^\/dev\/#{device_type}[a-z]+$/
-          end.last =~ /^\/dev\/#{device_type}([a-z]+)$/
-
-          last_device_letter_in_use = $1
-
-          if node['cloud']['provider'] == 'ec2' && device_type == 'hd'
-            # This is probably HVM
-            hvm = true
-            # Root device is /dev/hda on HVM images, but volumes are xvd in /proc/partitions,
-            # but can be referenced as sd also (mount shows sd) - PS
-            device_type.sub!('hd','xvd')
+          # Check through list of device names used with vSphere: lsiLogic(0:0) - lsiLogic(3:14).
+          # Return the first available device.
+          (0..3).to_a.product((0..14).to_a).detect do |controller_id, node_id|
+            !(in_use_devices + exclusions).include?("lsiLogic(#{controller_id}:#{node_id})")
           end
 
-          # This is a HVM image, need to start at xvdf at least
-          letters = hvm ? (['e', last_device_letter_in_use].max .. 'zzz') : (last_device_letter_in_use .. 'zzz')
-
-          # Get the device letter next to the last device letter in use
-          device_letter = letters.select { |letter| letter != letters.first && !exclusions.include?(letter) }.first
-
-        # The current devices are in the form sda1, xvdb1, etc.
-        elsif partitions.first =~ /^\/dev\/([a-z]+d[a-z]*)\d+$/
-          device_type = $1
-
-          partitions.select do |partition|
-            partition =~ /^\/dev\/#{device_type}\d+$/
-          end.last =~ /^\/dev\/#{device_type}(\d+)$/
-
-          last_device_letter_in_use = $1.to_i
-
-          # Get the device letter (number in this case) next to the last device letter in use
-          device_letter = last_device_letter_in_use + 1
         else
-          raise "unknown partition/device name: #{partitions.first}"
-        end
+          # Get the list of currently used devices
+          partitions = get_current_devices
 
-        "/dev/#{device_type}#{device_letter}"
+          # The AWS EBS documentation recommends using /dev/sd[f-p] for attaching volumes.
+          #
+          # http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-attaching-volume.html
+          #
+          if node['cloud']['provider'] == "ec2" && partitions.last =~ /^\/dev\/(s|xv)d[a-d][0-9]*$/
+            partitions << "/dev/#{$1}de"
+          end
+
+          # The current devices are in the form of sda, hda, xvda, etc.
+          if partitions.first =~ /^\/dev\/([a-z]+d)[a-z]+$/
+            device_type = $1
+
+            # Get the device letter of the last device in the list of current devices
+            partitions.select do |partition|
+              partition =~ /^\/dev\/#{device_type}[a-z]+$/
+            end.last =~ /^\/dev\/#{device_type}([a-z]+)$/
+
+            last_device_letter_in_use = $1
+
+            if node['cloud']['provider'] == 'ec2' && device_type == 'hd'
+              # This is probably HVM
+              hvm = true
+              # Root device is /dev/hda on HVM images, but volumes are xvd in /proc/partitions,
+              # but can be referenced as sd also (mount shows sd) - PS
+              device_type.sub!('hd','xvd')
+            end
+
+            # This is a HVM image, need to start at xvdf at least
+            letters = hvm ? (['e', last_device_letter_in_use].max .. 'zzz') : (last_device_letter_in_use .. 'zzz')
+
+            # Get the device letter next to the last device letter in use
+            device_letter = letters.select { |letter| letter != letters.first && !exclusions.include?(letter) }.first
+
+          # The current devices are in the form sda1, xvdb1, etc.
+          elsif partitions.first =~ /^\/dev\/([a-z]+d[a-z]*)\d+$/
+            device_type = $1
+
+            partitions.select do |partition|
+              partition =~ /^\/dev\/#{device_type}\d+$/
+            end.last =~ /^\/dev\/#{device_type}(\d+)$/
+
+            last_device_letter_in_use = $1.to_i
+
+            # Get the device letter (number in this case) next to the last device letter in use
+            device_letter = last_device_letter_in_use + 1
+          else
+            raise "unknown partition/device name: #{partitions.first}"
+          end
+
+          "/dev/#{device_type}#{device_letter}"
+        end
       end
 
       # Returns a list of device exclusions due to some hypervisors having "holes" in their attachable device list.
@@ -846,11 +868,14 @@ class Chef
       # @return [Array] the device exclusions
       #
       def device_letter_exclusions
-        exclusions = []
         # /dev/xvdd is assigned to the cdrom device eg., xentools iso (xe-guest-utilities)
         # that is likely a xenserver-ism
-        exclusions = ['d'] if node['cloud']['provider'] == 'cloudstack'
-        exclusions
+        case node['cloud']['provider']
+        when 'cloudstack'
+          ['d']
+        when 'vsphere'
+          ['lsiLogic(0:7)', 'lsiLogic(1:7)', 'lsiLogic(2:7)', 'lsiLogic(3:7)']
+        end
       end
 
       # Scans for volume attachments.
