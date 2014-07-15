@@ -637,6 +637,10 @@ class Chef
           end
           volume
         end
+
+        # vSphere images require a rescan for linux device to be removed.
+        scan_for_detachments if node['cloud']['provider'] == 'vsphere'
+
         true
       end
 
@@ -781,9 +785,8 @@ class Chef
           if devices.empty?
             devices = partitions.select { |partition| partition =~ /[0-9]$/ }.sort.map { |device| "/dev/#{device}" }
           end
+          devices
         end
-
-        devices
       end
 
       # Obtains the next available device.
@@ -802,9 +805,11 @@ class Chef
 
           # Check through list of device names used with vSphere: lsiLogic(0:0) - lsiLogic(3:14).
           # Return the first available device.
-          (0..3).to_a.product((0..14).to_a).detect do |controller_id, node_id|
+          avail_controller_id, avail_node_id = (0..3).to_a.product((0..14).to_a).detect do |controller_id, node_id|
             !(in_use_devices + exclusions).include?("lsiLogic(#{controller_id}:#{node_id})")
           end
+
+          "lsiLogic(#{avail_controller_id}:#{avail_node_id})"
 
         else
           # Get the list of currently used devices
@@ -890,29 +895,40 @@ class Chef
         scan_files.each do |scan_file|
           cmd = Mixlib::ShellOut.new("echo '- - -' > #{scan_file}")
           cmd.run_command
-          sleep 5
+          sleep 1
         end
       end
 
-      # Scans for volume detachments.
+      # Removes blocks devices left behind from detaching action.
+      # VMware requires the following manual process to remove the block device from Linux kernel.
+      # If able to read directly from block device, assume it is still in use and skip it.
       #
-      # @param device [String] the device that should be removed.  Example: /dev/sdf
-      #
-      def scan_for_detachment(device = '')
-        # vmware/esx requires the following "hack" to make OS/Linux aware of device changes.
+      def scan_for_detachments
 
-        # Detemine delete_device path from device name passed in.
-        if device =~ /\/dev\/([\W\w]+)$/
-          delete_device = "/sys/block/#{$1}/device/delete"
-        else
-          raise "Invalid device name"
+        # Get current list of block devices.
+        current_devices = get_current_devices
+
+        # Remove the device from array often used for the root device (/).
+        current_device.delete('/dev/sda')
+
+        # Iterate through block devices if it should be removed.
+        current_devices.each do | device |
+          if ::File.open(device, 'rb'){ |io| io.read(8) }
+            Chef::Log.info "Device #{device} appears to still be in use - no changes made."
+          else
+            device_name = ::File.basename(device)
+            scan_file = "/sys/block/#{device_name}/device/delete"
+            if ::File.exist?(scan_file)
+              Chef::Log.info "Manual removal of #{device}."
+              cmd = Mixlib::ShellOut.new("echo 1 > #{scan_file}")
+              cmd.run_command
+              sleep 1
+            else
+              Chef::Log.info "Scan file #{scan_file} does not exists to remove #{device} - no changes made."
+            end
+          end
         end
 
-        if ::File.exist?(delete_device)
-          cmd = Mixlib::ShellOut.new("echo 1 > #{delete_device}")
-          cmd.run_command
-          sleep 5
-        end
       end
 
     end
