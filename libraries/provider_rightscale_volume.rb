@@ -909,7 +909,7 @@ class Chef
         current_devices = get_current_devices
 
         # Remove the device from array often used for the root device (/).
-        current_device.delete('/dev/sda')
+        current_devices.delete('/dev/sda')
 
         # Iterate through block devices if it should be removed.
         current_devices.each do | device |
