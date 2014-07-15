@@ -901,7 +901,6 @@ class Chef
 
       # Removes blocks devices left behind from detaching action.
       # VMware requires the following manual process to remove the block device from Linux kernel.
-      # If able to read directly from block device, assume it is still in use and skip it.
       #
       def scan_for_detachments
 
@@ -913,7 +912,15 @@ class Chef
 
         # Iterate through block devices if it should be removed.
         current_devices.each do | device |
-          if ::File.open(device, 'rb'){ |io| io.read(8) }
+
+          # If able to read directly from block device, assume it is still in use.
+          device_available = begin
+            ::File.open(device, "rb"){ |io| io.read(8) } ? true : false
+          rescue Errno::EIO
+            false
+          end
+
+          if device_available
             Chef::Log.info "Device #{device} appears to still be in use - no changes made."
           else
             device_name = ::File.basename(device)
