@@ -141,11 +141,11 @@ describe Chef::Provider::RightscaleVolume do
       it "should return current_resource" do
         new_resource.nickname 'new_test_volume'
         provider.load_current_resource
-        provider.current_resource.volume_id.should be_nil
-        provider.current_resource.state.should be_nil
-        provider.current_resource.size.should == 1
-        provider.current_resource.description.should be_nil
-        provider.current_resource.device.should be_nil
+        expect(provider.current_resource.volume_id).to be_nil
+        expect(provider.current_resource.state).to be_nil
+        expect(provider.current_resource.size).to eq(1)
+        expect(provider.current_resource.description).to be_nil
+        expect(provider.current_resource.device).to be_nil
       end
     end
 
@@ -155,11 +155,11 @@ describe Chef::Provider::RightscaleVolume do
           provider.stub(:find_volumes).and_return(array_of(volume_resource))
           provider.load_current_resource
 
-          provider.current_resource.volume_id.should == 'some_id'
-          provider.current_resource.state.should_not be_nil
-          provider.current_resource.size.should == 1
-          provider.current_resource.description.should == 'test_volume description'
-          provider.current_resource.device.should == 'some_device'
+          expect(provider.current_resource.volume_id).to eq('some_id')
+          expect(provider.current_resource.state).to_not be_nil
+          expect(provider.current_resource.size).to eq(1)
+          expect(provider.current_resource.description).to eq('test_volume description')
+          expect(provider.current_resource.device).to eq('some_device')
         end
       end
 
@@ -168,7 +168,7 @@ describe Chef::Provider::RightscaleVolume do
           provider.stub(:find_volumes).and_return([])
           expect {
             provider.load_current_resource
-          }.not_to raise_error(RuntimeError)
+          }.not_to raise_error
         end
       end
     end
@@ -378,7 +378,7 @@ describe Chef::Provider::RightscaleVolume do
         it "should raise an exception" do
           expect {
             run_action(:detach)
-          }.not_to raise_error(RuntimeError)
+          }.not_to raise_error
         end
       end
     end
@@ -497,7 +497,7 @@ describe Chef::Provider::RightscaleVolume do
       context "when the cloud is neither rackspace-ng nor cloudstack" do
         it "should return nil" do
           volume_type = provider.send(:get_volume_type_href, 'some_cloud', 1)
-          volume_type.should be_nil
+          expect(volume_type).to be_nil
         end
       end
 
@@ -511,10 +511,10 @@ describe Chef::Provider::RightscaleVolume do
 
         it "should return href of the requested volume type" do
           volume_type = provider.send(:get_volume_type_href, 'rackspace-ng', 100, {:volume_type => 'SATA'})
-          volume_type.should == 'sata'
+          expect(volume_type).to eq('sata')
 
           volume_type = provider.send(:get_volume_type_href, 'rackspace-ng', 100, {:volume_type => 'SSD'})
-          volume_type.should == 'ssd'
+          expect(volume_type).to eq('ssd')
         end
       end
 
@@ -615,6 +615,7 @@ describe Chef::Provider::RightscaleVolume do
 
     describe "#detach_volume" do
       it "should detach the volume from the instance" do
+        node.set['cloud']['provider'] = 'some_cloud'
         provider.stub(:find_volumes).and_return(array_of(volume_resource))
         client_stub.should_receive(:volume_attachments).and_return(volume_attachment_resource)
         volume_attachment_resource.stub(:index => array_of(volume_attachment_resource))
