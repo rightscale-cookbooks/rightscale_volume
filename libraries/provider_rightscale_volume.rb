@@ -426,14 +426,14 @@ class Chef
           # vSphere has customized volume types.
           volume_types = @api_client.volume_types.index
 
-          # If no volume type is provided, use 'default'.
-          options[:volume_type] = 'default' if options[:volume_type].nil?
           volume_type = volume_types.detect do |type|
-            type.name.downcase == options[:volume_type].downcase
+            type.name == options[:volume_type]
           end
 
-          # If volume type does not exist, return nil
-          volume_type ? volume_type.href : nil
+          # If volume type does not exist, raise error
+          raise "An existing volume type is required for this cloud." unless volume_type
+
+          volume_type.href
         end
       end
 
