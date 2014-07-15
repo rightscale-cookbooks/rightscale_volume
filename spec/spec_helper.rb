@@ -21,6 +21,5 @@ lib = File.expand_path('../../libraries', __FILE__)
 $:.unshift(lib) unless $:.include?(lib)
 
 require 'chefspec'
-require 'rspec/collection_matchers'
 require 'provider_rightscale_volume'
 require 'resource_rightscale_volume'

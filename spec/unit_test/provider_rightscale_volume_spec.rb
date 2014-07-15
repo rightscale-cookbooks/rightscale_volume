@@ -676,7 +676,7 @@ describe Chef::Provider::RightscaleVolume do
       end
 
       it "should return at least one partition" do
-        devices.should have_at_least(1).items
+        expect(devices.length).to be <= 1
       end
 
       it "should not list LVM partitions" do
@@ -737,7 +737,7 @@ describe Chef::Provider::RightscaleVolume do
       context "when the cloud provider is anything other than cloudstack" do
         it "should return an empty array" do
           node.set['cloud']['provider'] = 'some_cloud'
-          provider.send(:device_letter_exclusions).should have(0).items
+          expect(provider.send(:device_letter_exclusions).length).to eq(0)
         end
       end
 
@@ -745,8 +745,8 @@ describe Chef::Provider::RightscaleVolume do
         it "should return an array with one element and the element must be 'd'" do
           node.set['cloud']['provider'] = 'cloudstack'
           exclusions = provider.send(:device_letter_exclusions)
-          exclusions.should have_at_most(1).items
-          exclusions.should include('d')
+          expect(exclusions.length).to be <= 1
+          expect(exclusions).to include('d')
         end
       end
     end
