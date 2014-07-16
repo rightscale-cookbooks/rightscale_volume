@@ -761,15 +761,15 @@ class Chef
         end
       end
 
-      # Gets all supported devices from method passed. Default method of 'os' uses /proc/partitions.
+      # Gets all supported devices from method passed. Default method of :os uses /proc/partitions.
       #
-      # @param method [String] the method to use to obtain current devices. Options currently are 'api' or 'os', 'os' being default.
+      # @param method [Symbol] the method to use to obtain current devices. Options currently are :api or :os, :os being default.
       #
       # @return [Array] the devices list.
       #
-      def get_current_devices(method = 'os')
+      def get_current_devices(method = :os)
 
-        if method == 'api'
+        if method == :api
           attached_devices
         else
           # Read devices that are currently in use from the last column in /proc/partitions
@@ -801,7 +801,7 @@ class Chef
         if node['cloud']['provider'] == 'vsphere'
 
           # Get list of currently used devices.
-          in_use_devices = get_current_devices('api')
+          in_use_devices = get_current_devices(:api)
 
           # Check through list of device names used with vSphere: lsiLogic(0:0) - lsiLogic(3:15).
           # Return the first available device.
