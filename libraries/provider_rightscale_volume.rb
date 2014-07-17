@@ -883,35 +883,33 @@ class Chef
 
       # Scans for volume attachments.
       #
+      # Some clouds require the following manual process to rescan for added block devices.
+      #
       def scan_for_attachments
-        # vmware/esx requires the following "hack" to make OS/Linux aware of device changes.
 
         # Check for /sys/class/scsi_host/host*/scan files.
         scan_files = ::Dir.glob('/sys/class/scsi_host/host*/scan')
         scan_files.each do |scan_file|
-          cmd = Mixlib::ShellOut.new("echo '- - -' > #{scan_file}")
-          cmd.run_command
+          ::File.open(scan_file,'w') { |f| f.puts '- - -' }
           sleep 1
         end
       end
 
       # Removes blocks devices left behind from detaching action.
-      # VMware requires the following manual process to remove the block device from Linux kernel.
+      #
+      # Some clouds require the following manual process to remove the block device from the linux kernel.
       #
       def scan_for_detachments
 
-        # Get current list of block devices.
+        # Get current list of block devices, excluding '/dev/sda' which is often used for the / (root) partition.
         current_devices = get_current_devices
-
-        # Remove the device from array often used for the root device (/).
         current_devices.delete('/dev/sda')
 
         # Iterate through block devices if it should be removed.
-        current_devices.each do | device |
-
+        current_devices.each do |device|
           # If able to read directly from block device, assume it is still in use.
           device_available = begin
-            ::File.open(device, "rb"){ |io| io.read(8) } ? true : false
+            ::File.binread(device, 8) ? true : false
           rescue Errno::EIO
             false
           end
@@ -923,8 +921,7 @@ class Chef
             scan_file = "/sys/block/#{device_name}/device/delete"
             if ::File.exist?(scan_file)
               Chef::Log.info "Manual removal of #{device}."
-              cmd = Mixlib::ShellOut.new("echo 1 > #{scan_file}")
-              cmd.run_command
+              ::File.open(scan_file,'w') { |f| f.puts '1' }
               sleep 1
             else
               Chef::Log.info "Scan file #{scan_file} does not exists to remove #{device} - no changes made."
