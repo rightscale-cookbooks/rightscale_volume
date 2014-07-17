@@ -371,9 +371,7 @@ class Chef
 
           # Set SATA as the default volume type for Rackspace Open Cloud
           options[:volume_type] = 'SATA' if options[:volume_type].nil?
-          volume_type = volume_types.detect do |type|
-            type.name.downcase == options[:volume_type].downcase
-          end
+          volume_type = volume_types.detect { |type| type.name.downcase == options[:volume_type].downcase }
           volume_type.href
 
         when "cloudstack"
@@ -426,9 +424,7 @@ class Chef
           # vSphere has customized volume types.
           volume_types = @api_client.volume_types.index
 
-          volume_type = volume_types.detect do |type|
-            type.name == options[:volume_type]
-          end
+          volume_type = volume_types.detect { |type| type.name == options[:volume_type] }
 
           # If volume type does not exist, raise error
           raise "An existing volume type is required for this cloud." unless volume_type
