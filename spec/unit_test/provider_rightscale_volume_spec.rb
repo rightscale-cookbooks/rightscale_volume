@@ -141,11 +141,11 @@ describe Chef::Provider::RightscaleVolume do
       it "should return current_resource" do
         new_resource.nickname 'new_test_volume'
         provider.load_current_resource
-        provider.current_resource.volume_id.should be_nil
-        provider.current_resource.state.should be_nil
-        provider.current_resource.size.should == 1
-        provider.current_resource.description.should be_nil
-        provider.current_resource.device.should be_nil
+        expect(provider.current_resource.volume_id).to be_nil
+        expect(provider.current_resource.state).to be_nil
+        expect(provider.current_resource.size).to eq(1)
+        expect(provider.current_resource.description).to be_nil
+        expect(provider.current_resource.device).to be_nil
       end
     end
 
@@ -155,11 +155,11 @@ describe Chef::Provider::RightscaleVolume do
           provider.stub(:find_volumes).and_return(array_of(volume_resource))
           provider.load_current_resource
 
-          provider.current_resource.volume_id.should == 'some_id'
-          provider.current_resource.state.should_not be_nil
-          provider.current_resource.size.should == 1
-          provider.current_resource.description.should == 'test_volume description'
-          provider.current_resource.device.should == 'some_device'
+          expect(provider.current_resource.volume_id).to eq('some_id')
+          expect(provider.current_resource.state).to_not be_nil
+          expect(provider.current_resource.size).to eq(1)
+          expect(provider.current_resource.description).to eq('test_volume description')
+          expect(provider.current_resource.device).to eq('some_device')
         end
       end
 
@@ -168,7 +168,7 @@ describe Chef::Provider::RightscaleVolume do
           provider.stub(:find_volumes).and_return([])
           expect {
             provider.load_current_resource
-          }.not_to raise_error(RuntimeError)
+          }.not_to raise_error
         end
       end
     end
@@ -378,7 +378,7 @@ describe Chef::Provider::RightscaleVolume do
         it "should raise an exception" do
           expect {
             run_action(:detach)
-          }.not_to raise_error(RuntimeError)
+          }.not_to raise_error
         end
       end
     end
@@ -469,7 +469,7 @@ describe Chef::Provider::RightscaleVolume do
       end
 
       context "given the name and size for the volume" do
-        context "the cloud provider is not rackspace-ng or cloudstack" do
+        context "the cloud provider is not rackspace-ng, cloudstack, or vsphere" do
           it "should create the volume" do
             node.set['cloud']['provider'] = 'some_cloud'
             client_stub.should_receive(:volumes).and_return(volume_resource)
@@ -494,10 +494,10 @@ describe Chef::Provider::RightscaleVolume do
         volume_type
       end
 
-      context "when the cloud is neither rackspace-ng nor cloudstack" do
+      context "when the cloud is neither rackspace-ng, cloudstack, nor vsphere" do
         it "should return nil" do
           volume_type = provider.send(:get_volume_type_href, 'some_cloud', 1)
-          volume_type.should be_nil
+          expect(volume_type).to be_nil
         end
       end
 
@@ -511,10 +511,10 @@ describe Chef::Provider::RightscaleVolume do
 
         it "should return href of the requested volume type" do
           volume_type = provider.send(:get_volume_type_href, 'rackspace-ng', 100, {:volume_type => 'SATA'})
-          volume_type.should == 'sata'
+          expect(volume_type).to eq('sata')
 
           volume_type = provider.send(:get_volume_type_href, 'rackspace-ng', 100, {:volume_type => 'SSD'})
-          volume_type.should == 'ssd'
+          expect(volume_type).to eq('ssd')
         end
       end
 
@@ -557,6 +557,33 @@ describe Chef::Provider::RightscaleVolume do
             volume_type_stub.stub(:index => [custom_volume_type])
             volume_type_href = provider.send(:get_volume_type_href, 'cloudstack', 3)
             volume_type_href.should == 'custom'
+          end
+        end
+      end
+
+      context 'when the cloud is vsphere' do
+        before(:each) do
+          thin = create_test_volume_type('thin', 'thin', 1, 'thin')
+          preallocated = create_test_volume_type('preallocated', 'preallocated', 1, 'preallocated')
+          volume_type_stub.stub(:index => [thin, preallocated])
+          client_stub.stub(:volume_types).and_return(volume_type_stub)
+        end
+
+        context "when volume_type is passed in" do
+          it "should return href of the requested volume type" do
+            volume_type = provider.send(:get_volume_type_href, 'vsphere', 1, {:volume_type => 'preallocated'})
+            expect(volume_type).to eq('preallocated')
+
+            volume_type = provider.send(:get_volume_type_href, 'vsphere', 1, {:volume_type => 'thin'})
+            expect(volume_type).to eq('thin')
+          end
+        end
+
+        context "when volume type is not passed in" do
+          it "should raise error that volume type is required" do
+            expect {
+              volume_type = provider.send(:get_volume_type_href, 'vsphere', 1)
+            }.to raise_error(RuntimeError, 'An existing volume type is required for this cloud.')
           end
         end
       end
@@ -615,6 +642,7 @@ describe Chef::Provider::RightscaleVolume do
 
     describe "#detach_volume" do
       it "should detach the volume from the instance" do
+        node.set['cloud']['provider'] = 'some_cloud'
         provider.stub(:find_volumes).and_return(array_of(volume_resource))
         client_stub.should_receive(:volume_attachments).and_return(volume_attachment_resource)
         volume_attachment_resource.stub(:index => array_of(volume_attachment_resource))
@@ -675,7 +703,7 @@ describe Chef::Provider::RightscaleVolume do
       end
 
       it "should return at least one partition" do
-        devices.should have_at_least(1).items
+        expect(devices.length).to be <= 1
       end
 
       it "should not list LVM partitions" do
@@ -736,7 +764,7 @@ describe Chef::Provider::RightscaleVolume do
       context "when the cloud provider is anything other than cloudstack" do
         it "should return an empty array" do
           node.set['cloud']['provider'] = 'some_cloud'
-          provider.send(:device_letter_exclusions).should have(0).items
+          expect(provider.send(:device_letter_exclusions).length).to eq(0)
         end
       end
 
@@ -744,10 +772,19 @@ describe Chef::Provider::RightscaleVolume do
         it "should return an array with one element and the element must be 'd'" do
           node.set['cloud']['provider'] = 'cloudstack'
           exclusions = provider.send(:device_letter_exclusions)
-          exclusions.should have_at_most(1).items
-          exclusions.should include('d')
+          expect(exclusions.length).to be <= 1
+          expect(exclusions).to include('d')
+        end
+      end
+
+      context "when the cloud provider is vsphere" do
+        it "should return an array with 4 elements each of node_id 7 belonging to controller device" do
+          node.set['cloud']['provider'] = 'vsphere'
+          exclusions = provider.send(:device_letter_exclusions)
+          expect(exclusions).to match_array(['lsiLogic(0:7)', 'lsiLogic(1:7)', 'lsiLogic(2:7)', 'lsiLogic(3:7)'])
         end
       end
     end
+
   end
 end
