@@ -890,7 +890,7 @@ class Chef
         # Check for /sys/class/scsi_host/host*/scan files.
         scan_files = ::Dir.glob('/sys/class/scsi_host/host*/scan')
         scan_files.each do |scan_file|
-          ::File.open(scan_file,'w') { |f| f.puts '- - -' }
+          ::File.open(scan_file, 'w') { |f| f.puts '- - -' }
           sleep 1
         end
       end
@@ -924,7 +924,7 @@ class Chef
             scan_file = "/sys/block/#{device_name}/device/delete"
             if ::File.exist?(scan_file)
               Chef::Log.info "Manual removal of #{device}."
-              ::File.open(scan_file,'w') { |f| f.puts '1' }
+              ::File.open(scan_file, 'w') { |f| f.puts '1' }
               sleep 1
             else
               Chef::Log.info "Scan file #{scan_file} does not exists to remove #{device} - no changes made."
