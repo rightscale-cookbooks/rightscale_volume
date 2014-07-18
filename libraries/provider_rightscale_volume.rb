@@ -901,8 +901,11 @@ class Chef
       #
       def scan_for_detachments
 
-        # Get current list of block devices, excluding '/dev/sda' which is often used for the / (root) partition.
+        # Get current list of block devices.
         current_devices = get_current_devices
+
+        # Exclude '/dev/sda', which is often used for the / (root) partition, as we do not
+        # want to remove the root partition device.
         current_devices.delete('/dev/sda')
 
         # Iterate through block devices if it should be removed.
