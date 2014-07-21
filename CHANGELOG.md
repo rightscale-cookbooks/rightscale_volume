@@ -3,6 +3,12 @@ rightscale_volume Cookbook CHANGELOG
 
 This file is used to list changes made in each version of the rightscale_volume cookbook.
 
+v1.2.0
+------
+
+- Add [shields.io](http://shields.io/) badges to README.
+- Add VMware vSphere support.
+
 v1.1.1
 ------
 
