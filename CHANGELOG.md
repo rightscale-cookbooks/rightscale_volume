@@ -6,7 +6,8 @@ This file is used to list changes made in each version of the rightscale_volume 
 v1.2.1
 ------
 
-- On VMware vSphere, change controller from lsiLogic to lsiLogicsas.
+- On VMware vSphere, change controller from lsiLogic to lsiLogicsas to allow Ubuntu 12.04
+  to detect volume attachements.
 
 v1.2.0
 ------
