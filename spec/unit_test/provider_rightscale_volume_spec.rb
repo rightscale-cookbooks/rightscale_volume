@@ -781,7 +781,7 @@ describe Chef::Provider::RightscaleVolume do
         it "should return an array with 4 elements each of node_id 7 belonging to controller device" do
           node.set['cloud']['provider'] = 'vsphere'
           exclusions = provider.send(:device_letter_exclusions)
-          expect(exclusions).to match_array(['lsiLogic(0:7)', 'lsiLogic(1:7)', 'lsiLogic(2:7)', 'lsiLogic(3:7)'])
+          expect(exclusions).to match_array(['lsiLogicsas(0:7)', 'lsiLogicsas(1:7)', 'lsiLogicsas(2:7)', 'lsiLogicsas(3:7)'])
         end
       end
     end
