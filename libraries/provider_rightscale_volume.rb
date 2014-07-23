@@ -799,13 +799,13 @@ class Chef
           # Get list of currently used devices.
           in_use_devices = get_current_devices(:api)
 
-          # Check through list of device names used with vSphere: lsiLogic(0:0) - lsiLogic(3:15).
+          # Check through list of device names used with vSphere: lsiLogicsas(0:0) - lsiLogicsas(3:15).
           # Return the first available device.
           avail_controller_id, avail_node_id = (0..3).to_a.product((0..15).to_a).detect do |controller_id, node_id|
-            !(in_use_devices + exclusions).include?("lsiLogic(#{controller_id}:#{node_id})")
+            !(in_use_devices + exclusions).include?("lsiLogicsas(#{controller_id}:#{node_id})")
           end
 
-          "lsiLogic(#{avail_controller_id}:#{avail_node_id})"
+          "lsiLogicsas(#{avail_controller_id}:#{avail_node_id})"
 
         else
           # Get the list of currently used devices
@@ -875,7 +875,7 @@ class Chef
           ['d']
         when 'vsphere'
           # node_id 7 is reserved for the controller
-          ['lsiLogic(0:7)', 'lsiLogic(1:7)', 'lsiLogic(2:7)', 'lsiLogic(3:7)']
+          ['lsiLogicsas(0:7)', 'lsiLogicsas(1:7)', 'lsiLogicsas(2:7)', 'lsiLogicsas(3:7)']
         else
           []
         end

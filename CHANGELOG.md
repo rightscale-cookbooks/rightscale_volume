@@ -3,6 +3,12 @@ rightscale_volume Cookbook CHANGELOG
 
 This file is used to list changes made in each version of the rightscale_volume cookbook.
 
+v1.2.1
+------
+
+- On VMware vSphere, change controller from lsiLogic to lsiLogicsas to allow Ubuntu 12.04
+  to detect volume attachements.
+
 v1.2.0
 ------
 
