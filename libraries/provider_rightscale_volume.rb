@@ -318,6 +318,15 @@ class Chef
         # If IOPS option is provided, set the IOPS
         params[:volume][:iops] = options[:iops] if options[:iops]
 
+        # If controller type is provided, use it.
+        # If it is not provided and we are on vsphere, set to lsiLogic.
+        # There should be no else case, resulting in not setting this param.
+        params[:volume][:controller_type] = if options[:controller_type]
+          options[:controller_type]
+        elsif node['cloud']['provider'] == 'vsphere'
+          'lsiLogic'
+        end
+
         # If snapshot_id is provided in the arguments, find the snapshot
         # and create the volume from the snapshot found
         unless snapshot_id.nil?
@@ -796,16 +805,18 @@ class Chef
       def get_next_device(exclusions = [])
         if node['cloud']['provider'] == 'vsphere'
 
+          controller_type = @current_resource.options[:controller_type]
+
           # Get list of currently used devices.
           in_use_devices = get_current_devices(:api)
 
-          # Check through list of device names used with vSphere: lsiLogicsas(0:0) - lsiLogicsas(3:15).
+          # Check through list of device names used with vSphere: lsiLogic(0:0) - lsiLogic(3:15).
           # Return the first available device.
           avail_controller_id, avail_node_id = (0..3).to_a.product((0..15).to_a).detect do |controller_id, node_id|
-            !(in_use_devices + exclusions).include?("lsiLogicsas(#{controller_id}:#{node_id})")
+            !(in_use_devices + exclusions).include?("#{controller_type}(#{controller_id}:#{node_id})")
           end
 
-          "lsiLogicsas(#{avail_controller_id}:#{avail_node_id})"
+          "(#{controller_type}#{avail_controller_id}:#{avail_node_id})"
 
         else
           # Get the list of currently used devices
