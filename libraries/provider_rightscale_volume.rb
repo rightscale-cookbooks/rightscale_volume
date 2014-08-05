@@ -57,6 +57,10 @@ class Chef
         end
         @current_resource.timeout @new_resource.timeout if @new_resource.timeout
 
+        if node['cloud']['provider'] == 'vsphere' && !(@current_resource.options[:controller_type])
+          @current_resource.options[:controller_type] = 'lsiLogic'
+        end
+
         @current_resource
       end
 
@@ -816,7 +820,7 @@ class Chef
             !(in_use_devices + exclusions).include?("#{controller_type}(#{controller_id}:#{node_id})")
           end
 
-          "(#{controller_type}#{avail_controller_id}:#{avail_node_id})"
+          "#{controller_type}(#{avail_controller_id}:#{avail_node_id})"
 
         else
           # Get the list of currently used devices
