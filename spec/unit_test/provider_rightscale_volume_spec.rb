@@ -131,6 +131,7 @@ describe Chef::Provider::RightscaleVolume do
 
   describe "#load_current_resource" do
     before(:each) do
+      node.set['cloud']['provider'] = 'some_cloud'
       node.set['rightscale_volume']['test_volume'] = {
         'volume_id' => 'some_id',
         :device => 'some_device'
@@ -206,6 +207,7 @@ describe Chef::Provider::RightscaleVolume do
 
     before(:each) do
       node.set['rightscale_volume'] = {}
+      node.set['cloud']['provider'] = 'some_cloud'
 
       new_resource.size volume_stub.size.to_i
       new_resource.description volume_stub.description
@@ -460,6 +462,7 @@ describe Chef::Provider::RightscaleVolume do
   describe "class methods" do
 
     before(:each) do
+      node.set['cloud']['provider'] = 'some_cloud'
       provider.load_current_resource
     end
 
@@ -780,6 +783,7 @@ describe Chef::Provider::RightscaleVolume do
       context "when the cloud provider is vsphere" do
         it "should return an array with 4 elements each of node_id 7 belonging to controller device" do
           node.set['cloud']['provider'] = 'vsphere'
+          provider.load_current_resource
           exclusions = provider.send(:device_letter_exclusions)
           expect(exclusions).to match_array(['lsiLogic(0:7)', 'lsiLogic(1:7)', 'lsiLogic(2:7)', 'lsiLogic(3:7)'])
         end

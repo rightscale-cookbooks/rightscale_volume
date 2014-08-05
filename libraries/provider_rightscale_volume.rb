@@ -57,6 +57,11 @@ class Chef
         end
         @current_resource.timeout @new_resource.timeout if @new_resource.timeout
 
+        # vSphere requires a controller_type for volume management.
+        if node['cloud']['provider'] == 'vsphere'
+          @current_resource.options[:controller_type] ||= 'lsiLogic'
+        end
+
         @current_resource
       end
 
@@ -317,6 +322,9 @@ class Chef
 
         # If IOPS option is provided, set the IOPS
         params[:volume][:iops] = options[:iops] if options[:iops]
+
+        # If controller type is provided, use it.
+        params[:volume][:controller_type] = options[:controller_type] if options[:controller_type]
 
         # If snapshot_id is provided in the arguments, find the snapshot
         # and create the volume from the snapshot found
@@ -796,16 +804,18 @@ class Chef
       def get_next_device(exclusions = [])
         if node['cloud']['provider'] == 'vsphere'
 
+          controller_type = @current_resource.options[:controller_type]
+
           # Get list of currently used devices.
           in_use_devices = get_current_devices(:api)
 
           # Check through list of device names used with vSphere: lsiLogic(0:0) - lsiLogic(3:15).
           # Return the first available device.
           avail_controller_id, avail_node_id = (0..3).to_a.product((0..15).to_a).detect do |controller_id, node_id|
-            !(in_use_devices + exclusions).include?("lsiLogic(#{controller_id}:#{node_id})")
+            !(in_use_devices + exclusions).include?("#{controller_type}(#{controller_id}:#{node_id})")
           end
 
-          "lsiLogic(#{avail_controller_id}:#{avail_node_id})"
+          "#{controller_type}(#{avail_controller_id}:#{avail_node_id})"
 
         else
           # Get the list of currently used devices
@@ -875,7 +885,8 @@ class Chef
           ['d']
         when 'vsphere'
           # node_id 7 is reserved for the controller
-          ['lsiLogic(0:7)', 'lsiLogic(1:7)', 'lsiLogic(2:7)', 'lsiLogic(3:7)']
+          controller_type = @current_resource.options[:controller_type]
+          ["#{controller_type}(0:7)", "#{controller_type}(1:7)", "#{controller_type}(2:7)", "#{controller_type}(3:7)"]
         else
           []
         end
