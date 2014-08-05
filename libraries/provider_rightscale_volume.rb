@@ -57,8 +57,9 @@ class Chef
         end
         @current_resource.timeout @new_resource.timeout if @new_resource.timeout
 
-        if node['cloud']['provider'] == 'vsphere' && !(@current_resource.options[:controller_type])
-          @current_resource.options[:controller_type] = 'lsiLogic'
+        # vSphere requires a controller_type for volume management.
+        if node['cloud']['provider'] == 'vsphere'
+          @current_resource.options[:controller_type] ||= 'lsiLogic'
         end
 
         @current_resource
@@ -323,13 +324,7 @@ class Chef
         params[:volume][:iops] = options[:iops] if options[:iops]
 
         # If controller type is provided, use it.
-        # If it is not provided and we are on vsphere, set to lsiLogic.
-        # There should be no else case, resulting in not setting this param.
-        params[:volume][:controller_type] = if options[:controller_type]
-          options[:controller_type]
-        elsif node['cloud']['provider'] == 'vsphere'
-          'lsiLogic'
-        end
+        params[:volume][:controller_type] = options[:controller_type] if options[:controller_type]
 
         # If snapshot_id is provided in the arguments, find the snapshot
         # and create the volume from the snapshot found
