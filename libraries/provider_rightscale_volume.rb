@@ -886,7 +886,8 @@ class Chef
           ['d']
         when 'vsphere'
           # node_id 7 is reserved for the controller
-          ['lsiLogicsas(0:7)', 'lsiLogicsas(1:7)', 'lsiLogicsas(2:7)', 'lsiLogicsas(3:7)']
+          controller_type = @current_resource.options[:controller_type]
+          ["#{controller_type}(0:7)", "#{controller_type}(1:7)", "#{controller_type}(2:7)", "#{controller_type}(3:7)"]
         else
           []
         end
