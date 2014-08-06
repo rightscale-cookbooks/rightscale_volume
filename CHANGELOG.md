@@ -3,6 +3,11 @@ rightscale_volume Cookbook CHANGELOG
 
 This file is used to list changes made in each version of the rightscale_volume cookbook.
 
+v1.2.1
+------
+
+- `controller_type` can be passed in as an option.
+
 v1.2.0
 ------
 
