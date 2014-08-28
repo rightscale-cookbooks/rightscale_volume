@@ -3,6 +3,11 @@ rightscale_volume Cookbook CHANGELOG
 
 This file is used to list changes made in each version of the rightscale_volume cookbook.
 
+v1.2.2
+------
+
+- Add 20 minute timeout for right_api_client calls.
+
 v1.2.1
 ------
 
