@@ -425,11 +425,11 @@ class Chef
             return volume_type.href
           end
         when 'vsphere'
-          raise 'A volume type must be specified for this cloud.' unless options[:volume_type]
+          raise 'An existing volume type is required for this cloud.' unless options[:volume_type]
         end
 
         if options[:volume_type]
-          volume_types = @api_client.volume_types.index(filter: ["name==#{options[:volume_type}"])
+          volume_types = @api_client.volume_types.index(filter: ["name==#{options[:volume_type]}"])
           volume_type = volume_types.detect { |type| type.name.downcase == options[:volume_type].downcase }
           raise "Could not find volume type: #{options[:volume_type]}" unless volume_type
           volume_type.href
