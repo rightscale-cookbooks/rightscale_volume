@@ -374,70 +374,64 @@ class Chef
       #
       def get_volume_type_href(cloud, size, options = {})
         case cloud
-        when "rackspace-ng"
-          # Rackspace Open Cloud offers two types of devices - SATA and SSD
-          volume_types = @api_client.volume_types.index
-
+        when 'rackspace-ng'
           # Set SATA as the default volume type for Rackspace Open Cloud
-          options[:volume_type] = 'SATA' if options[:volume_type].nil?
+          options[:volume_type] = 'SATA' unless options[:volume_type]
+        when 'cloudstack'
+          unless options[:volume_type]
+            # CloudStack has the concept of a "custom" disk offering
+            # Anything that is not a custom type is a fixed size.
+            # If there is not a custom type, we will use the closest size which is
+            # greater than or equal to the requested size.
+            # If there are multiple custom volume types or multiple volume types
+            # with the closest size, the one with the greatest resource_uid will
+            # be used.
+            # If the resource_uid is non-numeric (e.g. a UUID), the first returned
+            # valid volume type will be used.
+            volume_types = @api_client.volume_types.index
+            custom_volume_types = volume_types.select { |type| type.size.to_i == 0 }
+
+            if custom_volume_types.empty?
+              volume_types.reject! { |type| type.size.to_i < size }
+              minimum_size = volume_types.map { |type| type.size.to_i }.min
+              volume_types.reject! { |type| type.size.to_i != minimum_size }
+            else
+              volume_types = custom_volume_types
+            end
+
+            if volume_types.empty?
+              raise "Could not find a volume type that is large enough for #{size}"
+            elsif volume_types.size == 1
+              volume_type = volume_types.first
+            elsif volume_types.first.resource_uid =~ /^[0-9]+$/
+              Chef::Log.info "Found multiple valid volume types"
+              Chef::Log.info "Using the volume type with the greatest numeric resource_uid"
+              volume_type = volume_types.max_by { |type| type.resource_uid.to_i }
+            else
+              Chef::Log.info "Found multiple valid volume types"
+              Chef::Log.info "Using the first returned valid volume type"
+              volume_type = volume_types.first
+            end
+
+            if volume_type.size.to_i == 0
+              Chef::Log.info "Found volume type that supports custom sizes:" +
+                " #{volume_type.name} (#{volume_type.resource_uid})"
+            else
+              Chef::Log.info "Did not find volume type that supports custom sizes"
+              Chef::Log.info "Using closest volume type: #{volume_type.name}" +
+                " (#{volume_type.resource_uid}) which is #{volume_type.size} GB"
+            end
+
+            return volume_type.href
+          end
+        when 'vsphere'
+          raise 'A volume type must be specified for this cloud.' unless options[:volume_type]
+        end
+
+        if options[:volume_type]
+          volume_types = @api_client.volume_types.index(filter: ["name==#{options[:volume_type}"])
           volume_type = volume_types.detect { |type| type.name.downcase == options[:volume_type].downcase }
-          volume_type.href
-
-        when "cloudstack"
-          # CloudStack has the concept of a "custom" disk offering
-          # Anything that is not a custom type is a fixed size.
-          # If there is not a custom type, we will use the closest size which is
-          # greater than or equal to the requested size.
-          # If there are multiple custom volume types or multiple volume types
-          # with the closest size, the one with the greatest resource_uid will
-          # be used.
-          # If the resource_uid is non-numeric (e.g. a UUID), the first returned
-          # valid volume type will be used.
-          volume_types = @api_client.volume_types.index
-          custom_volume_types = volume_types.select { |type| type.size.to_i == 0 }
-
-          if custom_volume_types.empty?
-            volume_types.reject! { |type| type.size.to_i < size }
-            minimum_size = volume_types.map { |type| type.size.to_i }.min
-            volume_types.reject! { |type| type.size.to_i != minimum_size }
-          else
-            volume_types = custom_volume_types
-          end
-
-          if volume_types.empty?
-            raise "Could not find a volume type that is large enough for #{size}"
-          elsif volume_types.size == 1
-            volume_type = volume_types.first
-          elsif volume_types.first.resource_uid =~ /^[0-9]+$/
-            Chef::Log.info "Found multiple valid volume types"
-            Chef::Log.info "Using the volume type with the greatest numeric resource_uid"
-            volume_type = volume_types.max_by { |type| type.resource_uid.to_i }
-          else
-            Chef::Log.info "Found multiple valid volume types"
-            Chef::Log.info "Using the first returned valid volume type"
-            volume_type = volume_types.first
-          end
-
-          if volume_type.size.to_i == 0
-            Chef::Log.info "Found volume type that supports custom sizes:" +
-              " #{volume_type.name} (#{volume_type.resource_uid})"
-          else
-            Chef::Log.info "Did not find volume type that supports custom sizes"
-            Chef::Log.info "Using closest volume type: #{volume_type.name}" +
-              " (#{volume_type.resource_uid}) which is #{volume_type.size} GB"
-          end
-
-          volume_type.href
-
-        when "vsphere"
-          # vSphere has customized volume types.
-          volume_types = @api_client.volume_types.index
-
-          volume_type = volume_types.detect { |type| type.name == options[:volume_type] }
-
-          # If volume type does not exist, raise error
-          raise "An existing volume type is required for this cloud." unless volume_type
-
+          raise "Could not find volume type: #{options[:volume_type]}" unless volume_type
           volume_type.href
         end
       end
