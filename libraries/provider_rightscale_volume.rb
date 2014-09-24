@@ -498,7 +498,7 @@ class Chef
         }
 
         # use the lowest available LUN if we are on Azure/HyperV/VirtualPC
-        hypervisor = node[:virtualization][:system] || node[:virtualization][:emulator]
+        hypervisor = node['virtualization']['system'] || node['virtualization']['emulator']
         if hypervisor == "virtualpc" || ['gce', 'google'].include?(node['cloud']['provider'])
           luns = attached_devices.map { |attached_device| attached_device.to_i }.to_set
           lun = 0

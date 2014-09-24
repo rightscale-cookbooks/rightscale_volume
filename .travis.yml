@@ -1,10 +1,13 @@
 language: ruby
 rvm:
-  - 2.0.0
-  - 1.9.3
+- 2.0.0
+- 1.9.3
 script: bundle exec strainer test
 notifications:
   irc:
-    channels: ["chat.freenode.net#rightscale"]
+    channels:
+    - chat.freenode.net#rightscale
     use_notice: true
     skip_join: true
+  slack:
+    secure: ThNRpalJ4TExlPHvYTqV8JKsYn52J6Go63P2aQNBipJooq8ii6CyZhB1EPOZLpeMRD3z3wk3LQXdc25GwmNzJMv8NjLnK20qBYSAUM47no3bWzmPR1YoYExgkKbSTAqKOoZL45QCwVwqF95QMkPXiylbBZFhxjCWG7wVoVDv87U=
