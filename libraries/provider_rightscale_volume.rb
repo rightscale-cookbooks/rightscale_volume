@@ -400,7 +400,7 @@ class Chef
             end
 
             if volume_types.empty?
-              raise "Could not find a volume type that is large enough for #{size}"
+              raise "Could not find a volume type that is large enough for #{size} GB"
             elsif volume_types.size == 1
               volume_type = volume_types.first
             elsif volume_types.first.resource_uid =~ /^[0-9]+$/
