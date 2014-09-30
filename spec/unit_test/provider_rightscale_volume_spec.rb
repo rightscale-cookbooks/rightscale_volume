@@ -108,7 +108,7 @@ describe Chef::Provider::RightscaleVolume do
 
   let(:instance_stub) { double('instance', :links => [], :href => 'some_href') }
 
-  let(:volume_type_stub) do
+  let(:volume_types) do
     volume_type = double('volume_type')
     volume_type.stub(
       :name => 'some_name',
@@ -482,7 +482,12 @@ describe Chef::Provider::RightscaleVolume do
       end
     end
 
-    describe "#get_volume_type_href" do
+    describe '#get_volume_type_href' do
+      # Proxy to Chef::Provider::RightScaleVolume#get_volume_type_href so we don't have to repeat `provider.send`.
+      #
+      def get_volume_type_href(*args)
+        provider.send(:get_volume_type_href, *args)
+      end
 
       # Creates a dummy volume type.
       #
@@ -492,100 +497,119 @@ describe Chef::Provider::RightscaleVolume do
       # @param href [String] href of the volume type
       #
       def create_test_volume_type(name, id, size, href)
-        volume_type = double('volume_types')
-        volume_type.stub(:name => name, :resource_uid => id, :size => size, :href => href)
+        volume_type = double('volume_type')
+        volume_type.stub(name: name, resource_uid: id, size: size, href: href)
         volume_type
       end
 
-      context "when the cloud is neither rackspace-ng, cloudstack, nor vsphere" do
-        it "should return nil" do
-          volume_type = provider.send(:get_volume_type_href, 'some_cloud', 1)
-          expect(volume_type).to be_nil
+      context 'when the cloud is not special cased' do
+        let(:cloud) { 'somecloud' }
+        let(:spiffy_href) { '/api/clouds/0/volume_types/SPIFFY' }
+
+        before(:each) do
+          spiffy = create_test_volume_type('Spiffy', 'spiffy-0', nil, spiffy_href)
+          volume_types.stub(index: [spiffy])
+          client_stub.stub(:volume_types).and_return(volume_types)
+        end
+
+        it 'should return nil by default' do
+          href = get_volume_type_href(cloud, 1)
+          expect(href).to be_nil
+        end
+
+        it 'should return an href when a volume type is specified' do
+          href = get_volume_type_href(cloud, 1, volume_type: 'Spiffy')
+          expect(href).to be(spiffy_href)
+        end
+
+        it 'should raise when a volume type does not exist' do
+          expect {
+            get_volume_type_href(cloud, 1, volume_type: 'Nonexistent')
+          }.to raise_error(RuntimeError, 'Could not find volume type: Nonexistent')
         end
       end
 
-      context "when the cloud is rackspace-ng" do
+      context 'when the cloud is rackspace-ng' do
+        let(:cloud) { 'rackspace-ng' }
+        let(:sata_href) { '/api/clouds/2374/volume_types/FDQ9LAJ83V4QT' }
+
         before(:each) do
-          sata = create_test_volume_type('sata', 'sata', 100, 'sata')
-          ssd = create_test_volume_type('ssd', 'ssd', 100, 'ssd')
-          volume_type_stub.stub(:index => [sata, ssd])
-          client_stub.stub(:volume_types).and_return(volume_type_stub)
+          sata = create_test_volume_type('SATA', 'd5f9242f-aeca-4b11-abbd-6dc497d2d27a', nil, sata_href)
+          allow(volume_types).to receive(:index).with(filter: ['name==SATA']).and_return([sata])
+          client_stub.stub(:volume_types).and_return(volume_types)
         end
 
-        it "should return href of the requested volume type" do
-          volume_type = provider.send(:get_volume_type_href, 'rackspace-ng', 100, {:volume_type => 'SATA'})
-          expect(volume_type).to eq('sata')
-
-          volume_type = provider.send(:get_volume_type_href, 'rackspace-ng', 100, {:volume_type => 'SSD'})
-          expect(volume_type).to eq('ssd')
+        it 'should return SATA href by default' do
+          href = get_volume_type_href(cloud, 100)
+          expect(href).to eq(sata_href)
         end
       end
 
-      context "when the cloud is cloudstack" do
+      context 'when the cloud is cloudstack' do
+        let(:cloud) { 'cloudstack' }
+        let(:gig5_href) { '/api/clouds/0/volume_types/5GIG' }
+        let(:gig10_href) { '/api/clouds/0/volume_types/10GIG' }
+
         before(:each) do
-          # Create dummy volume types
-          volume_type_1 = create_test_volume_type('type_1', 'id_1', '5', 'href_1')
-          volume_type_2 = create_test_volume_type('type_2', 'id_2', '10', 'href_2')
-          volume_type_stub.stub(:index => [volume_type_1, volume_type_2])
-          client_stub.stub(:volume_types).and_return(volume_type_stub)
+          gig5 = create_test_volume_type('5 Gig', '5-gig', '5', gig5_href)
+          gig10 = create_test_volume_type('10 Gig', '10-gig', '10', gig10_href)
+          volume_types.stub(index: [gig5, gig10])
+          client_stub.stub(:volume_types).and_return(volume_types)
         end
 
-        context "when a custom volume does not exist" do
-          context "when volume type href with size equal to the requested size exists" do
-            it "should return volume type href" do
-              href = provider.send(:get_volume_type_href, 'cloudstack', 5)
-              href.should == 'href_1'
+        context 'when a custom volume does not exist' do
+          context 'when volume type href with size equal to the requested size exists' do
+            it 'should return a volume type href' do
+              href = get_volume_type_href(cloud, 5)
+              expect(href).to eq(gig5_href)
             end
           end
 
-          context "when volume type href with size greater than the requested size exists" do
-            it "should return volume type href" do
-              href = provider.send(:get_volume_type_href, 'cloudstack', 8)
-              href.should == 'href_2'
+          context 'when volume type href with size greater than the requested size exists' do
+            it 'should return volume type href' do
+              href = get_volume_type_href(cloud, 8)
+              expect(href).to eq(gig10_href)
             end
           end
 
-          context "when no volume type href with size greater than or equal to the requested size exists" do
-            it "should return volume type href" do
+          context 'when no volume type href with size greater than or equal to the requested size exists' do
+            it 'should raise an error' do
               expect {
-                href = provider.send(:get_volume_type_href, 'cloudstack', 20)
-              }.to raise_error(RuntimeError)
+                get_volume_type_href(cloud, 20)
+              }.to raise_error(RuntimeError, 'Could not find a volume type that is large enough for 20 GB')
+            end
+          end
+
+          context 'when a volume type is requested' do
+            it 'should return the volume type href' do
+              href = get_volume_type_href(cloud, 5, volume_type: '10 Gig')
+              expect(href).to eq(gig10_href)
             end
           end
         end
 
-        context "when a custom volume type exist" do
-          it "should return href of the custom volume type with the requested size" do
-            custom_volume_type = create_test_volume_type('custom', 'custom', '0', 'custom')
-            volume_type_stub.stub(:index => [custom_volume_type])
-            volume_type_href = provider.send(:get_volume_type_href, 'cloudstack', 3)
-            volume_type_href.should == 'custom'
+        context 'when a custom volume type exist' do
+          let(:custom_href) { '/api/clouds/0/volume_types/CUSTOM' }
+
+          before(:each) do
+            gig5 = create_test_volume_type('5 Gig', '5-gig', '5', gig5_href)
+            gig10 = create_test_volume_type('10 Gig', '10-gig', '10', gig10_href)
+            custom_volume_type = create_test_volume_type('Custom', 'custom', '0', custom_href)
+            volume_types.stub(:index => [gig5, gig10, custom_volume_type])
+          end
+
+          it 'should return href of the custom volume type with the requested size' do
+            href = get_volume_type_href(cloud, 3)
+            expect(href).to eq(custom_href)
           end
         end
       end
 
       context 'when the cloud is vsphere' do
-        before(:each) do
-          thin = create_test_volume_type('thin', 'thin', 1, 'thin')
-          preallocated = create_test_volume_type('preallocated', 'preallocated', 1, 'preallocated')
-          volume_type_stub.stub(:index => [thin, preallocated])
-          client_stub.stub(:volume_types).and_return(volume_type_stub)
-        end
-
-        context "when volume_type is passed in" do
-          it "should return href of the requested volume type" do
-            volume_type = provider.send(:get_volume_type_href, 'vsphere', 1, {:volume_type => 'preallocated'})
-            expect(volume_type).to eq('preallocated')
-
-            volume_type = provider.send(:get_volume_type_href, 'vsphere', 1, {:volume_type => 'thin'})
-            expect(volume_type).to eq('thin')
-          end
-        end
-
-        context "when volume type is not passed in" do
-          it "should raise error that volume type is required" do
+        context 'when volume type is not passed in' do
+          it 'should raise error that volume type is required' do
             expect {
-              volume_type = provider.send(:get_volume_type_href, 'vsphere', 1)
+              volume_type = get_volume_type_href('vsphere', 1)
             }.to raise_error(RuntimeError, 'An existing volume type is required for this cloud.')
           end
         end
