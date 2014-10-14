@@ -3,6 +3,11 @@ rightscale_volume Cookbook CHANGELOG
 
 This file is used to list changes made in each version of the rightscale_volume cookbook.
 
+v1.2.4
+------
+
+- Scanning of volume changes to be done on VMware; previously only done on vSphere.
+
 v1.2.3
 ------
 
