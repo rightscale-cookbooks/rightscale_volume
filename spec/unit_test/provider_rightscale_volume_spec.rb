@@ -669,6 +669,7 @@ describe Chef::Provider::RightscaleVolume do
 
     describe "#detach_volume" do
       it "should detach the volume from the instance" do
+        node.set[:virtualization][:system] = 'some_hypervisor'
         node.set['cloud']['provider'] = 'some_cloud'
         provider.stub(:find_volumes).and_return(array_of(volume_resource))
         client_stub.should_receive(:volume_attachments).and_return(volume_attachment_resource)

@@ -550,8 +550,8 @@ class Chef
           end
         end
 
-        # vSphere linux images require a rescan for added volumes to be seen.
-        scan_for_attachments if node['cloud']['provider'] == 'vsphere'
+        # VMware linux images require a rescan for added volumes to be seen.
+        scan_for_attachments if node['virtualization']['system'] == 'vmware'
 
         # Determine the actual device name
         (Set.new(get_current_devices) - current_devices).first
@@ -637,8 +637,8 @@ class Chef
           volume
         end
 
-        # vSphere linux images require a rescan of devices once volumes are removed.
-        scan_for_detachments if node['cloud']['provider'] == 'vsphere'
+        # VMware linux images require a rescan of devices once volumes are removed.
+        scan_for_detachments if node['virtualization']['system'] == 'vmware'
 
         true
       end
