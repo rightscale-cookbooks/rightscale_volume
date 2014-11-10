@@ -313,10 +313,11 @@ class Chef
         params[:volume][:datacenter_href] = datacenter_href["href"] if datacenter_href
 
         volume_type_href = get_volume_type_href(node['cloud']['provider'], size, options)
-        if node['cloud']['provider'] == 'vsphere' && volume_type_href.nil?
-          raise "An existing volume type is required for this cloud."
+
+        # Pass the volume type HREF if it was returned except when restoring from a snapshot on cloudstack
+        unless volume_type_href.nil? || (snapshot_id && node['cloud']['provider'] == 'cloudstack')
+          params[:volume][:volume_type_href] = volume_type_href
         end
-        params[:volume][:volume_type_href] = volume_type_href unless volume_type_href.nil?
 
         # If description parameter is nil or empty do not pass it to the API
         params[:volume][:description] = description unless (description.nil? || description.empty?)
@@ -366,7 +367,8 @@ class Chef
       #
       # @param cloud [Symbol] the cloud which supports volume types
       # @param size [Integer] the volume size (used by CloudStack to select appropriate volume type)
-      # @param options [Hash] the optional parameters required to choose volume type
+      #
+      # @option options [String] :volume_type the name of the volume type to use
       #
       # @return [String, nil] the volume type href
       #
