@@ -1,7 +1,12 @@
 rightscale_volume Cookbook CHANGELOG
-=======================
+====================================
 
 This file is used to list changes made in each version of the rightscale_volume cookbook.
+
+v1.2.5
+------
+
+- Don't pass volume type when restoring with snapshot ID on Cloudstack.
 
 v1.2.4
 ------
