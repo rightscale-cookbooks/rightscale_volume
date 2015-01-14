@@ -3,6 +3,11 @@ rightscale_volume Cookbook CHANGELOG
 
 This file is used to list changes made in each version of the rightscale_volume cookbook.
 
+v1.2.6
+------
+
+- On AWS, determine next volume device name based on AWS UserGuide.
+
 v1.2.5
 ------
 
