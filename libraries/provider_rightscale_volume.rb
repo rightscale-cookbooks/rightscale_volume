@@ -814,17 +814,29 @@ class Chef
 
           "#{controller_type}(#{avail_controller_id}:#{avail_node_id})"
 
-        else
+        elsif node['cloud']['provider'] == 'ec2'
+
           # Get the list of currently used devices
           partitions = get_current_devices
+
+          # AWS uses xvd as the device type in /proc/partitions
+          # Root device is /dev/hda on HVM images, but volumes are xvd in /proc/partitions,
+          # but can be referenced as sd also (mount shows sd) - PS
+          device_type = 'xvd'
 
           # The AWS EBS documentation recommends using /dev/sd[f-p] for attaching volumes.
           #
           # http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-attaching-volume.html
-          #
-          if node['cloud']['provider'] == "ec2" && partitions.last =~ /^\/dev\/(s|xv)d[a-d][0-9]*$/
-            partitions << "/dev/#{$1}de"
-          end
+          device_letter = ('f'..'p').find { |letter| !partitions.include?("/dev/#{device_type}#{letter}") && !exclusions.include?("/dev/#{device_type}#{letter}") }
+
+          raise 'No device names available' unless device_letter
+
+          "/dev/#{device_type}#{device_letter}"
+
+        else
+
+          # Get the list of currently used devices
+          partitions = get_current_devices
 
           # The current devices are in the form of sda, hda, xvda, etc.
           if partitions.first =~ /^\/dev\/([a-z]+d)[a-z]+$/
@@ -837,16 +849,7 @@ class Chef
 
             last_device_letter_in_use = $1
 
-            if node['cloud']['provider'] == 'ec2' && device_type == 'hd'
-              # This is probably HVM
-              hvm = true
-              # Root device is /dev/hda on HVM images, but volumes are xvd in /proc/partitions,
-              # but can be referenced as sd also (mount shows sd) - PS
-              device_type.sub!('hd','xvd')
-            end
-
-            # This is a HVM image, need to start at xvdf at least
-            letters = hvm ? (['e', last_device_letter_in_use].max .. 'zzz') : (last_device_letter_in_use .. 'zzz')
+            letters = last_device_letter_in_use .. 'zzz'
 
             # Get the device letter next to the last device letter in use
             device_letter = letters.select { |letter| letter != letters.first && !exclusions.include?(letter) }.first

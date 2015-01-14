@@ -10,5 +10,6 @@ group :integration do
   gem 'strainer', '~> 3.3.0'
   gem 'chefspec', '~> 3.4.0'
   gem 'rspec', '~> 2.14.1'
+  gem 'ohai', '~> 7.4.0'
   gem 'travis-lint'
 end

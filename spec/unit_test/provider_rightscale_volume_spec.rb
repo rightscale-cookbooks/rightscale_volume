@@ -774,9 +774,9 @@ describe Chef::Provider::RightscaleVolume do
       context "when the cloud provider is ec2" do
         it "should not return the device as anything between (s|xv|h)da and (s|xv|h)de" do
           node.set['cloud']['provider'] = 'ec2'
-          provider.stub(:get_current_devices).and_return(['/dev/sda', '/dev/sdb'])
+          provider.stub(:get_current_devices).and_return(['/dev/xvda', '/dev/xvdb'])
           device = provider.send(:get_next_device)
-          device.should == '/dev/sdf'
+          device.should == '/dev/xvdf'
         end
 
         it "should not return the device as anything between xvda and xvde if the instance is of HVM type" do
