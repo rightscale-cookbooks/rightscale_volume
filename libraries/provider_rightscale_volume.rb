@@ -827,7 +827,7 @@ class Chef
           # The AWS EBS documentation recommends using /dev/sd[f-p] for attaching volumes.
           #
           # http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-attaching-volume.html
-          device_letter = ('f'..'l').find { |letter| !devices.include?("/dev/#{device_type}#{letter}") && !exclusions.include?("/dev/#{device_type}#{letter}") }
+          device_letter = ('f'..'p').find { |letter| !partitions.include?("/dev/#{device_type}#{letter}") && !exclusions.include?("/dev/#{device_type}#{letter}") }
 
           raise 'No device names available' unless device_letter
 
