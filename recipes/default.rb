@@ -17,7 +17,19 @@
 # limitations under the License.
 #
 
-log "Installing required gems..."
+log 'Installing required gems and dependencies...'
+
+dependencies = if platform_family?('debian')
+  ['make', 'g++']
+elsif platform_family?('rhel')
+  ['gcc-c++']
+else
+  []
+end
+
+dependencies.each do |package_name|
+  package package_name
+end
 
 # Install gems during compile phase so that they are available to files
 # which require them during converge phase.
