@@ -19,17 +19,9 @@
 
 log 'Installing required gems and dependencies...'
 
-dependencies = if platform_family?('debian')
-  ['make', 'g++']
-elsif platform_family?('rhel')
-  ['gcc-c++']
-else
-  []
-end
-
-dependencies.each do |package_name|
-  package package_name
-end
+# Install build-essentials at compile time so it is available for right_api_client
+node.normal['build-essential']['compile_time'] = true
+include_recipe 'build-essential'
 
 # Install gems during compile phase so that they are available to files
 # which require them during converge phase.
