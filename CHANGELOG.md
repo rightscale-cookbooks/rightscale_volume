@@ -3,6 +3,11 @@ rightscale_volume Cookbook CHANGELOG
 
 This file is used to list changes made in each version of the rightscale_volume cookbook.
 
+v1.2.7
+------
+
+- Include 'build-essentials' which installs packages required for compiling and installing right_api_client.
+
 v1.2.6
 ------
 
