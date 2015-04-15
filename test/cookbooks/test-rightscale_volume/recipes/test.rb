@@ -24,7 +24,7 @@ end
 include_recipe 'rightscale_volume::default'
 
 # Set minimum volume size to 100GB for Rackspace Open Clouds (cloud-specific feature)
-volume_size = node[:cloud][:provider] == 'rackspace-ng' ? 100 : 1
+volume_size = node[:cloud][:provider] == 'rackspace' ? 100 : 1
 
 # Set the volume name with the current UNIX timestamp so that multiple test runs
 # do not overlap each other in case of failures
@@ -234,7 +234,7 @@ ruby_block 'ensure volume 2 deleted' do
   block do
     if is_volume_deleted?(test_volume_2)
       Chef::Log.info 'TESTING action_delete -- PASSED'
-    elsif ['rackspace-ng', 'openstack'].include?(node['cloud']['provider'])
+    elsif ['rackspace', 'openstack'].include?(node['cloud']['provider'])
       Chef::Log.info 'TESTING action_delete -- SKIPPED cannot delete volume if it has dependent snapshots'
     else
       raise 'TESTING action_delete -- FAILED'
