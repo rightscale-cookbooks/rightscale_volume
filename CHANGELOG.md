@@ -3,6 +3,11 @@ rightscale_volume Cookbook CHANGELOG
 
 This file is used to list changes made in each version of the rightscale_volume cookbook.
 
+v1.2.8
+------
+
+- Use correct Rackspace cloud name.
+
 v1.2.7
 ------
 
