@@ -133,7 +133,7 @@ class Chef
           @new_resource.updated_by_last_action(true)
           Chef::Log.info " Successfully deleted volume '#{@current_resource.nickname}'"
         else
-          if ['rackspace-ng', 'openstack'].include?(node['cloud']['provider'])
+          if ['rackspace', 'openstack'].include?(node['cloud']['provider'])
             Chef::Log.info "Volume '#{@current_resource.nickname}' was not deleted!"
             delete_device_hash
           else
@@ -296,7 +296,7 @@ class Chef
       # @raise [Timeout::Error] if volume creation takes longer than the timeout value
       #
       def create_volume(name, size, description = "", snapshot_id = nil, options = {})
-        if (size < 100 && node['cloud']['provider'] == "rackspace-ng")
+        if (size < 100 && node['cloud']['provider'] == "rackspace")
           raise "Minimum volume size supported by this cloud is 100 GB."
         end
 
@@ -376,7 +376,7 @@ class Chef
       #
       def get_volume_type_href(cloud, size, options = {})
         case cloud
-        when 'rackspace-ng'
+        when 'rackspace'
           # Set SATA as the default volume type for Rackspace Open Cloud
           options[:volume_type] = 'SATA' unless options[:volume_type]
         when 'cloudstack'
