@@ -626,9 +626,11 @@ describe Chef::Provider::RightscaleVolume do
     end
 
     describe "#attach_volume" do
+
       it "should attach the volume to an instance" do
         provider.stub(:find_volumes).and_return(array_of(volume_resource))
-        provider.stub(:get_current_devices).and_return(['device_1', 'device_2'])
+        # First call will return 1 device, second call will return 2 devices.
+        provider.stub(:get_current_devices).and_return(['device_1'], ['device_1', 'device_2'])
 
         node.set[:virtualization][:system] = 'some_hypervisor'
         node.set['cloud']['provider'] = 'some_cloud'
