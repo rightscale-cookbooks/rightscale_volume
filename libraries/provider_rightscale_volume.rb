@@ -562,7 +562,7 @@ class Chef
             sleep(1)
             Chef::Log.info "Checking for added device."
             added_device = (Set.new(get_current_devices) - current_devices).first
-          end until !added_device.nil?
+          end until added_device
         end
         added_device
       end
