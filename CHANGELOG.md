@@ -3,6 +3,11 @@ rightscale_volume Cookbook CHANGELOG
 
 This file is used to list changes made in each version of the rightscale_volume cookbook.
 
+v1.2.9
+------
+
+- Verify from OS perspective that volume has been attached.
+
 v1.2.8
 ------
 

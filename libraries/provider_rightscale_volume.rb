@@ -556,7 +556,15 @@ class Chef
         scan_for_attachments if node['virtualization']['system'] == 'vmware'
 
         # Determine the actual device name
-        (Set.new(get_current_devices) - current_devices).first
+        added_device = nil
+        Timeout::timeout(60) do
+          begin
+            sleep(1)
+            Chef::Log.info "Checking for added device."
+            added_device = (Set.new(get_current_devices) - current_devices).first
+          end until added_device
+        end
+        added_device
       end
 
       # Finds volumes using the given filters.
