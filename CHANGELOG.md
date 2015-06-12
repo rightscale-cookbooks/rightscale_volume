@@ -6,7 +6,7 @@ This file is used to list changes made in each version of the rightscale_volume 
 v1.2.10
 -------
 
-- On CloudStack KVM, do not delete volumes as backups depend on them on restore.
+- On CloudStack KVM, do not delete volumes as backups depend on them to restore.
 
 v1.2.9
 ------
