@@ -132,7 +132,7 @@ class Chef
         # by backups.  Unfortunatly, CloudStack still allows you to delete the volume.
         if node['cloud']['provider'] == 'cloudstack' && node['virtualization']['system'] == 'kvm'
           Chef::Log.info "Volume '#{@current_resource.nickname}' was not deleted based on current" +
-            "cloud and hypervisor - #{node['cloud']['provider']} #{node['virtualization']['system']}"
+            " cloud and hypervisor - '#{node['cloud']['provider']}' '#{node['virtualization']['system']}'"
           delete_device_hash
           return
         end
