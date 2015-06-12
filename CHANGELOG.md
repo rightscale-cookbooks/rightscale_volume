@@ -3,6 +3,11 @@ rightscale_volume Cookbook CHANGELOG
 
 This file is used to list changes made in each version of the rightscale_volume cookbook.
 
+v1.2.10
+-------
+
+- On CloudStack KVM, do not delete volumes as backups depend on them to restore.
+
 v1.2.9
 ------
 
