@@ -127,6 +127,15 @@ class Chef
         end
 
         Chef::Log.info "Deleting volume '#{@current_resource.nickname}'..."
+
+        # Work around for CloudStack/CloudPlatform KVM - volume cannot be deleted since they are required
+        # by backups.  Unfortunatly, CloudStack still allows you to delete the volume.
+        if node['cloud']['provider'] == 'cloudstack' && node['virtualization']['system'] == 'kvm'
+          Chef::Log.info "Volume '#{@current_resource.nickname}' was not deleted based on cloud and hypervisor!"
+          delete_device_hash
+          return
+        end
+
         if delete_volume(@current_resource.volume_id)
           # Set device in node variable to nil after successfully deleting the volume
           delete_device_hash
