@@ -17,7 +17,11 @@
 # limitations under the License.
 #
 
-log "Installing required gems..."
+log 'Installing required gems and dependencies...'
+
+# Install build-essentials at compile time so it is available for right_api_client
+node.normal['build-essential']['compile_time'] = true
+include_recipe 'build-essential'
 
 # Install gems during compile phase so that they are available to files
 # which require them during converge phase.

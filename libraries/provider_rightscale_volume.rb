@@ -127,13 +127,23 @@ class Chef
         end
 
         Chef::Log.info "Deleting volume '#{@current_resource.nickname}'..."
+
+        # Work around for CloudStack/CloudPlatform KVM - volume cannot be deleted since they are required
+        # by backups.  Unfortunatly, CloudStack still allows you to delete the volume.
+        if node['cloud']['provider'] == 'cloudstack' && node['virtualization']['system'] == 'kvm'
+          Chef::Log.info "Volume '#{@current_resource.nickname}' was not deleted based on current" +
+            " cloud and hypervisor - '#{node['cloud']['provider']}' '#{node['virtualization']['system']}'"
+          delete_device_hash
+          return
+        end
+
         if delete_volume(@current_resource.volume_id)
           # Set device in node variable to nil after successfully deleting the volume
           delete_device_hash
           @new_resource.updated_by_last_action(true)
           Chef::Log.info " Successfully deleted volume '#{@current_resource.nickname}'"
         else
-          if ['rackspace-ng', 'openstack'].include?(node['cloud']['provider'])
+          if ['rackspace', 'openstack'].include?(node['cloud']['provider'])
             Chef::Log.info "Volume '#{@current_resource.nickname}' was not deleted!"
             delete_device_hash
           else
@@ -294,7 +304,7 @@ class Chef
       # @raise [Timeout::Error] if volume creation takes longer than the timeout value
       #
       def create_volume(name, size, description = "", snapshot_id = nil, options = {})
-        if (size < 100 && node['cloud']['provider'] == "rackspace-ng")
+        if (size < 100 && node['cloud']['provider'] == "rackspace")
           raise "Minimum volume size supported by this cloud is 100 GB."
         end
 
@@ -374,7 +384,7 @@ class Chef
       #
       def get_volume_type_href(cloud, size, options = {})
         case cloud
-        when 'rackspace-ng'
+        when 'rackspace'
           # Set SATA as the default volume type for Rackspace Open Cloud
           options[:volume_type] = 'SATA' unless options[:volume_type]
         when 'cloudstack'
@@ -554,7 +564,15 @@ class Chef
         scan_for_attachments if node['virtualization']['system'] == 'vmware'
 
         # Determine the actual device name
-        (Set.new(get_current_devices) - current_devices).first
+        added_device = nil
+        Timeout::timeout(60) do
+          begin
+            sleep(1)
+            Chef::Log.info "Checking for added device."
+            added_device = (Set.new(get_current_devices) - current_devices).first
+          end until added_device
+        end
+        added_device
       end
 
       # Finds volumes using the given filters.

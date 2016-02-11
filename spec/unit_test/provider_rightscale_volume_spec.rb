@@ -402,7 +402,7 @@ describe Chef::Provider::RightscaleVolume do
 
           context "on Rackspace Open Cloud" do
             it "should not raise execption" do
-              node.set['cloud']['provider'] = 'rackspace-ng'
+              node.set['cloud']['provider'] = 'rackspace'
               expect {
                 run_action(:delete)
               }.to_not raise_error
@@ -472,7 +472,7 @@ describe Chef::Provider::RightscaleVolume do
       end
 
       context "given the name and size for the volume" do
-        context "the cloud provider is not rackspace-ng, cloudstack, or vsphere" do
+        context "the cloud provider is not rackspace, cloudstack, or vsphere" do
           it "should create the volume" do
             node.set['cloud']['provider'] = 'some_cloud'
             client_stub.should_receive(:volumes).and_return(volume_resource)
@@ -529,8 +529,8 @@ describe Chef::Provider::RightscaleVolume do
         end
       end
 
-      context 'when the cloud is rackspace-ng' do
-        let(:cloud) { 'rackspace-ng' }
+      context 'when the cloud is rackspace' do
+        let(:cloud) { 'rackspace' }
         let(:sata_href) { '/api/clouds/2374/volume_types/FDQ9LAJ83V4QT' }
 
         before(:each) do
@@ -626,9 +626,11 @@ describe Chef::Provider::RightscaleVolume do
     end
 
     describe "#attach_volume" do
+
       it "should attach the volume to an instance" do
         provider.stub(:find_volumes).and_return(array_of(volume_resource))
-        provider.stub(:get_current_devices).and_return(['device_1', 'device_2'])
+        # First call will return 1 device, second call will return 2 devices.
+        provider.stub(:get_current_devices).and_return(['device_1'], ['device_1', 'device_2'])
 
         node.set[:virtualization][:system] = 'some_hypervisor'
         node.set['cloud']['provider'] = 'some_cloud'

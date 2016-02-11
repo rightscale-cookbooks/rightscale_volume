@@ -3,6 +3,26 @@ rightscale_volume Cookbook CHANGELOG
 
 This file is used to list changes made in each version of the rightscale_volume cookbook.
 
+v1.2.10
+-------
+
+- On CloudStack KVM, do not delete volumes as backups depend on them to restore.
+
+v1.2.9
+------
+
+- Verify from OS perspective that volume has been attached.
+
+v1.2.8
+------
+
+- Use correct Rackspace cloud name.
+
+v1.2.7
+------
+
+- Include 'build-essentials' which installs packages required for compiling and installing right_api_client.
+
 v1.2.6
 ------
 
