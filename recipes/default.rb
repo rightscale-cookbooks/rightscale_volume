@@ -25,4 +25,7 @@ include_recipe 'build-essential'
 
 # Install gems during compile phase so that they are available to files
 # which require them during converge phase.
-chef_gem 'right_api_client'
+# pin gem for ruby 1.9/chef 11 compatiblity
+chef_gem 'right_api_client' do
+  version "1.6.1"
+end
