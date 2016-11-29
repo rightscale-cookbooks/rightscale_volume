@@ -24,7 +24,7 @@ Github Repository: [https://github.com/rightscale-cookbooks/rightscale_volume](h
 # Requirements
 
 * The system being configured must be a RightScale managed VM to have the required access to the RightScale API.
-* Chef 11 or higher.
+* Chef 11.
 * [RightLink 10](http://docs.rightscale.com/rl10/) See cookbook version 1.2.6 for RightLink 6 support
 * Also requires a RightScale account that is registered with all the cloud vendors
   you expect to provision on (e.g. AWS, Rackspace, Openstack, CloudStack, GCE, and Azure).
