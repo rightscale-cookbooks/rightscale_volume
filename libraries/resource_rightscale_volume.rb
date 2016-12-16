@@ -37,10 +37,10 @@ class Chef
       # @return [Chef::Resource::RightscaleVolume] the newly created
       # rightscale_volume resource.
       #
-      def initialize(name, run_context=nil)
+      def initialize(name, run_context = nil)
         super
         @resource_name = :rightscale_volume
-        @action = "create"
+        @action = 'create'
         @allowed_actions.push(:create, :delete, :attach, :detach, :snapshot, :cleanup)
         @provider = Chef::Provider::RightscaleVolume
       end
@@ -55,7 +55,7 @@ class Chef
         set_or_return(
           :name,
           arg,
-          :kind_of => String,
+          kind_of: String
         )
       end
 
@@ -69,8 +69,8 @@ class Chef
         set_or_return(
           :size,
           arg,
-          :kind_of => Integer,
-          :default => 1
+          kind_of: Integer,
+          default: 1
         )
       end
 
@@ -84,7 +84,7 @@ class Chef
         set_or_return(
           :description,
           arg,
-          :kind_of => String
+          kind_of: String
         )
       end
 
@@ -98,7 +98,7 @@ class Chef
         set_or_return(
           :volume_id,
           arg,
-          :kind_of => String
+          kind_of: String
         )
       end
 
@@ -112,7 +112,7 @@ class Chef
         set_or_return(
           :snapshot_name,
           arg,
-          :kind_of => String
+          kind_of: String
         )
       end
 
@@ -126,7 +126,7 @@ class Chef
         set_or_return(
           :snapshot_id,
           arg,
-          :kind_of => String
+          kind_of: String
         )
       end
 
@@ -142,8 +142,8 @@ class Chef
         set_or_return(
           :max_snapshots,
           arg,
-          :kind_of => Integer,
-          :default => 60
+          kind_of: Integer,
+          default: 60
         )
       end
 
@@ -159,8 +159,8 @@ class Chef
         set_or_return(
           :timeout,
           arg,
-          :kind_of => Integer,
-          :default => 15
+          kind_of: Integer,
+          default: 15
         )
       end
 
@@ -175,8 +175,8 @@ class Chef
         set_or_return(
           :options,
           arg,
-          :kind_of => Hash,
-          :default => {}
+          kind_of: Hash,
+          default: {}
         )
       end
     end

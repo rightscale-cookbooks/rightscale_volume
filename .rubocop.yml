@@ -1,0 +1,19 @@
+AllCops:
+  Exclude:
+    - 'berks-cookbooks/**/*'
+    - 'knife.rb'
+Style/AccessorMethodName:
+  Exclude:
+    - 'Rakefile'
+Style/PredicateName:
+  Exclude:
+    - 'test/cookbooks/test-rightscale_volume/libraries/helper.rb'
+Style/IfInsideElse:
+  Exclude:
+    - 'libraries/provider_rightscale_volume.rb'
+Lint/Loop:
+  Exclude:
+    - 'libraries/provider_rightscale_volume.rb'
+Lint/UselessAssignment:
+  Exclude:
+    - 'spec/unit_test/provider_rightscale_volume_spec.rb'
