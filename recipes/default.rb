@@ -25,4 +25,6 @@ include_recipe 'build-essential'
 
 # Install gems during compile phase so that they are available to files
 # which require them during converge phase.
-chef_gem 'right_api_client'
+chef_gem 'right_api_client' do
+  compile_time true
+end
