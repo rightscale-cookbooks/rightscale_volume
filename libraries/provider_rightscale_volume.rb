@@ -27,6 +27,7 @@ class Chef
       # node if device exists in the node. Also initializes platform methods
       # and right_api_client for making API calls.
       #
+      provides :rightscale_volume if Chef::Provider.respond_to?(:provides) # Fix Chef 12.4.0 support (issue #22)
       def load_current_resource
         @new_resource.nickname(@new_resource.name) unless @new_resource.nickname
         @current_resource ||= Chef::Resource::RightscaleVolume.new(@new_resource.name)
