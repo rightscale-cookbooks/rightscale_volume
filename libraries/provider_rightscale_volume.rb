@@ -23,12 +23,18 @@ require 'chef/provider/lwrp_base'
 class Chef
   class Provider
     # A provider class for rightscale_volume cookbook.
-    class RightscaleVolume < Chef::Provider
+    class RightscaleVolume < Chef::Provider::LWRPBase
       # Loads @current_resource instance variable with device hash values in the
       # node if device exists in the node. Also initializes platform methods
       # and right_api_client for making API calls.
       #
-      provides :rightscale_volume if Chef::Provider.respond_to?(:provides) # Fix Chef 12.4.0 support (issue #22)
+      provides :rightscale_volume
+      include Chef::DSL::IncludeRecipe
+      use_inline_resources
+
+      def whyrun_supported?
+        true
+      end
 
       def load_current_resource
         @new_resource.nickname(@new_resource.name) unless @new_resource.nickname
@@ -70,7 +76,7 @@ class Chef
       # Creates a new volume with the given name. If snapshot_id is provided,
       # a new volume is created from the snapshot.
       #
-      def action_create
+      action :create do
         raise 'Cannot create a volume with specific ID.' if @new_resource.volume_id
 
         # If volume of the same size already created do nothing. Else raise an exception.
@@ -108,14 +114,14 @@ class Chef
 
           # Store all volume information in node variable
           save_device_hash
-          @new_resource.updated_by_last_action(true)
+          # @new_resource.updated_by_last_action(true)
           Chef::Log.info "Volume '#{@current_resource.nickname}' successfully created"
         end
       end
 
       # Deletes a volume with the given name.
       #
-      def action_delete
+      action :delete do
         # If volume already deleted, do nothing.
         if @current_resource.state.nil?
           Chef::Log.info "Device '#{@current_resource.nickname}' does not exist." \
@@ -142,7 +148,7 @@ class Chef
         if delete_volume(@current_resource.volume_id)
           # Set device in node variable to nil after successfully deleting the volume
           delete_device_hash
-          @new_resource.updated_by_last_action(true)
+          # @new_resource.updated_by_last_action(true)
           Chef::Log.info " Successfully deleted volume '#{@current_resource.nickname}'"
         else
           if %w(rackspace openstack).include?(node['cloud']['provider'])
@@ -156,7 +162,7 @@ class Chef
 
       # Attaches a volume to a device.
       #
-      def action_attach
+      action :attach do
         # If volume is not created or already attached, do nothing
         if @current_resource.state.nil?
           raise "Device '#{@current_resource.nickname}' does not exist." \
@@ -176,14 +182,14 @@ class Chef
         else
           # Store all information in node variable
           save_device_hash
-          @new_resource.updated_by_last_action(true)
+          # @new_resource.updated_by_last_action(true)
           Chef::Log.info "Volume '#{@current_resource.nickname}' successfully attached to '#{@current_resource.device}'"
         end
       end
 
       # Detaches a volume from the device.
       #
-      def action_detach
+      action :detach do
         # If volume is not available or not attached, do nothing
         if @current_resource.state.nil?
           Chef::Log.info "Device '#{@current_resource.nickname}' does not exist." \
@@ -202,7 +208,7 @@ class Chef
 
           # Store all information in node variable
           save_device_hash
-          @new_resource.updated_by_last_action(true)
+          # @new_resource.updated_by_last_action(true)
           Chef::Log.info "Volume '#{@current_resource.nickname}' successfully detached."
         else
           raise "Volume '#{@current_resource.nickname}' was not successfully detached!"
@@ -211,7 +217,7 @@ class Chef
 
       # Creates a snapshot of the specified volume.
       #
-      def action_snapshot
+      action :snapshot do
         if @current_resource.state.nil?
           raise "Device '#{@current_resource.nickname}' does not exist." \
                 ' This device may have been deleted or never been created.'
@@ -233,7 +239,7 @@ class Chef
 
       # Deletes old snapshots that exceeds the maximum snapshots limit for the specified volume.
       #
-      def action_cleanup
+      action :cleanup do
         if @current_resource.state.nil?
           raise "Device '#{@current_resource.nickname}' does not exist." \
                 ' This device may have been deleted or never been created.'
