@@ -4,7 +4,7 @@ DEPENDENCIES
     revision: cb6d4da6900a8de9ea5b4031b68e3bfa765873aa
   marker
     git: https://github.com/rightscale-cookbooks/marker.git
-    revision: 3aa2e07316176ea8afddd3028ce6362f34a10442
+    revision: e2540433d0f8937ac4fd2a1f8e6d1fa6ee398073
   rightscale_volume
     path: .
     metadata: true
@@ -12,11 +12,11 @@ DEPENDENCIES
     path: test/cookbooks/test-rightscale_volume
 
 GRAPH
-  build-essential (7.0.2)
-    compat_resource (>= 12.14)
+  build-essential (7.0.3)
+    compat_resource (>= 12.16.3)
     mingw (>= 1.1)
     seven_zip (>= 0.0.0)
-  compat_resource (12.16.2)
+  compat_resource (12.16.3)
   delayed_evaluator (0.2.0)
   marker (1.0.1)
   mingw (1.2.4)

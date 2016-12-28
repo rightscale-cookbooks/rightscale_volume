@@ -18,11 +18,15 @@
 #
 
 require 'chef/resource'
+require 'chef/resource/lwrp_base'
 
 class Chef
   class Resource
     # A resource class for 'rightscale_volume' cookbook.
     class RightscaleVolume < Chef::Resource
+      resource_name :rightscale_volume if Chef::Provider.respond_to?(:resource_name)
+      provides :rightscale_volume if Chef::Provider.respond_to?(:provides)
+
       # Volume state
       attr_accessor :state
 

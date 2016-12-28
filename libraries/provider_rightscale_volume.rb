@@ -18,6 +18,7 @@
 #
 
 require 'chef/provider'
+require 'chef/provider/lwrp_base'
 
 class Chef
   class Provider
@@ -28,6 +29,7 @@ class Chef
       # and right_api_client for making API calls.
       #
       provides :rightscale_volume if Chef::Provider.respond_to?(:provides) # Fix Chef 12.4.0 support (issue #22)
+
       def load_current_resource
         @new_resource.nickname(@new_resource.name) unless @new_resource.nickname
         @current_resource ||= Chef::Resource::RightscaleVolume.new(@new_resource.name)
@@ -869,7 +871,6 @@ class Chef
             # Get the device letter next to the last device letter in use
             device_letter = letters.select { |letter| letter != letters.first && !exclusions.include?(letter) }.first
 
-          # The current devices are in the form sda1, xvdb1, etc.
           elsif partitions.first =~ %r{^\/dev\/([a-z]+d[a-z]*)\d+$}
             device_type = Regexp.last_match(1)
 
