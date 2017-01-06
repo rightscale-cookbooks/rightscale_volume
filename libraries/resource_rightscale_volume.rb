@@ -18,11 +18,15 @@
 #
 
 require 'chef/resource'
+require 'chef/resource/lwrp_base'
 
 class Chef
   class Resource
     # A resource class for 'rightscale_volume' cookbook.
-    class RightscaleVolume < Chef::Resource
+    class RightscaleVolume < Chef::Resource::LWRPBase
+      provides :rightscale_volume
+      resource_name :rightscale_volume
+
       # Volume state
       attr_accessor :state
 
@@ -37,13 +41,15 @@ class Chef
       # @return [Chef::Resource::RightscaleVolume] the newly created
       # rightscale_volume resource.
       #
-      def initialize(name, run_context=nil)
-        super
-        @resource_name = :rightscale_volume
-        @action = "create"
-        @allowed_actions.push(:create, :delete, :attach, :detach, :snapshot, :cleanup)
-        @provider = Chef::Provider::RightscaleVolume
-      end
+      # def initialize(name, run_context = nil)
+      #  super
+      #  @resource_name = :rightscale_volume
+      #  @action = 'create'
+      #  @allowed_actions.push(:create, :delete, :attach, :detach, :snapshot, :cleanup)
+      #  @provider = Chef::Provider::RightscaleVolume
+      # end
+      actions :create, :delete, :attach, :detach, :snapshot, :cleanup
+      default_action :create
 
       # Name of the device.
       #
@@ -51,13 +57,14 @@ class Chef
       #
       # @return [String] the volume name
       #
-      def nickname(arg = nil)
-        set_or_return(
-          :name,
-          arg,
-          :kind_of => String,
-        )
-      end
+      # def nickname(arg = nil)
+      #  set_or_return(
+      #    :name,
+      #    arg,
+      #    kind_of: String
+      #  )
+      # end
+      attribute :nickname, kind_of: String, name_attribute: true, required: true
 
       # Size of the device to create in GBs. By default, this is set to 1 GB.
       #
@@ -65,14 +72,15 @@ class Chef
       #
       # @return [Integer] the volume size
       #
-      def size(arg = nil)
-        set_or_return(
-          :size,
-          arg,
-          :kind_of => Integer,
-          :default => 1
-        )
-      end
+      # def size(arg = nil)
+      #  set_or_return(
+      #    :size,
+      #    arg,
+      #    kind_of: Integer,
+      #    default: 1
+      #  )
+      # end
+      attribute :size, kind_of: Integer, default: 1
 
       # Description of the device.
       #
@@ -80,13 +88,14 @@ class Chef
       #
       # @return [String] the volume description
       #
-      def description(arg = nil)
-        set_or_return(
-          :description,
-          arg,
-          :kind_of => String
-        )
-      end
+      # def description(arg = nil)
+      #  set_or_return(
+      #    :description,
+      #    arg,
+      #    kind_of: String
+      #  )
+      # end
+      attribute :description, kind_of: String
 
       # Identifier for a single volume.
       #
@@ -94,13 +103,14 @@ class Chef
       #
       # @return [String] the volume ID
       #
-      def volume_id(arg = nil)
-        set_or_return(
-          :volume_id,
-          arg,
-          :kind_of => String
-        )
-      end
+      # def volume_id(arg = nil)
+      #  set_or_return(
+      #    :volume_id,
+      #    arg,
+      #    kind_of: String
+      #  )
+      # end
+      attribute :volume_id, kind_of: String
 
       # Name of snapshot.
       #
@@ -108,13 +118,14 @@ class Chef
       #
       # @return [String] the snapshot name.
       #
-      def snapshot_name(arg = nil)
-        set_or_return(
-          :snapshot_name,
-          arg,
-          :kind_of => String
-        )
-      end
+      # def snapshot_name(arg = nil)
+      #   set_or_return(
+      #     :snapshot_name,
+      #     arg,
+      #     kind_of: String
+      #   )
+      # end
+      attribute :snapshot_name, kind_of: String
 
       # Snapshot ID to create the volume from.
       #
@@ -122,13 +133,14 @@ class Chef
       #
       # @return [String] snapshot ID
       #
-      def snapshot_id(arg = nil)
-        set_or_return(
-          :snapshot_id,
-          arg,
-          :kind_of => String
-        )
-      end
+      # def snapshot_id(arg = nil)
+      #   set_or_return(
+      #     :snapshot_id,
+      #     arg,
+      #    kind_of: String
+      #   )
+      # end
+      attribute :snapshot_id, kind_of: String
 
       # Maximum number of snapshots to keep. This is used during cleanup.
       # By default, this is set to 60.
@@ -138,14 +150,15 @@ class Chef
       #
       # @return [Integer] the number of snapshots to retain
       #
-      def max_snapshots(arg = nil)
-        set_or_return(
-          :max_snapshots,
-          arg,
-          :kind_of => Integer,
-          :default => 60
-        )
-      end
+      # def max_snapshots(arg = nil)
+      #   set_or_return(
+      #     :max_snapshots,
+      #     arg,
+      #     kind_of: Integer,
+      #     default: 60
+      #   )
+      # end
+      attribute :max_snapshots, kind_of: Integer, default: 60
 
       # Timeout in minutes. Used to throw an error if the action cannot be
       # completed by the cloud provider within this given minutes. By default,
@@ -155,14 +168,15 @@ class Chef
       #
       # @return [Integer] the timeout value
       #
-      def timeout(arg = nil)
-        set_or_return(
-          :timeout,
-          arg,
-          :kind_of => Integer,
-          :default => 15
-        )
-      end
+      # def timeout(arg = nil)
+      #   set_or_return(
+      #    :timeout,
+      #    arg,
+      #    kind_of: Integer,
+      #    default: 15
+      #  )
+      # end
+      attribute :timeout, kind_of: Integer, default: 15
 
       # Hash that holds cloud provider specific attributes such as IOPS or
       # volume_type ('SATA'/'SSD').
@@ -171,14 +185,15 @@ class Chef
       #
       # @return [Hash] the optional parameters
       #
-      def options(arg = nil)
-        set_or_return(
-          :options,
-          arg,
-          :kind_of => Hash,
-          :default => {}
-        )
-      end
+      # def options(arg = nil)
+      #  set_or_return(
+      #    :options,
+      #    arg,
+      #    kind_of: Hash,
+      #    default: {}
+      #  )
+      # end
+      attribute :options, kind_of: Hash, default: {}
     end
   end
 end

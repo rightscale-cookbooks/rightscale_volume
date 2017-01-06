@@ -23,7 +23,7 @@ require 'mixlib/shellout'
 #
 module RightscaleVolumeTest
   module Helper
-    MOUNT_POINT = '/mnt/storage'
+    MOUNT_POINT = '/mnt/storage'.freeze
 
     # Initializes `right_api_client`.
     #
@@ -35,11 +35,9 @@ module RightscaleVolumeTest
 
       account_id, instance_token = ENV['RS_API_TOKEN'].split(':')
       api_url = "https://#{ENV['RS_SERVER']}"
-      client = RightApi::Client.new({
-        :account_id => account_id,
-        :instance_token => instance_token,
-        :api_url => api_url
-      })
+      client = RightApi::Client.new(account_id: account_id,
+                                    instance_token: instance_token,
+                                    api_url: api_url)
       client.log(Chef::Log.logger)
       client
     end
@@ -50,7 +48,7 @@ module RightscaleVolumeTest
     # @return [RightApi::Client] the client instance
     #
     def api_client
-      @@api_client ||= initialize_api_client
+      @api_client ||= initialize_api_client
     end
 
     # Checks if the volume is created in the cloud using API calls.
@@ -60,7 +58,7 @@ module RightscaleVolumeTest
     # @return [Boolean] true if volume exists, false otherwise
     #
     def is_volume_created?(volume_id)
-      get_volumes(:resource_uid => volume_id).empty? ? false : true
+      get_volumes(resource_uid: volume_id).empty? ? false : true
     end
 
     # Gets the list of volumes from the cloud based on the filter.
@@ -72,7 +70,7 @@ module RightscaleVolumeTest
     # @return [Array<RightApi::Resource>] the volumes found
     #
     def get_volumes(filter = {})
-      api_client.volumes.index(:filter => build_filters(filter))
+      api_client.volumes.index(filter: build_filters(filter))
     end
 
     # Checks if the volume is attached to an instance in the cloud.
@@ -82,13 +80,11 @@ module RightscaleVolumeTest
     # @return [Boolean] true if the volume is attached, false otherwise
     #
     def is_volume_attached?(volume_id)
-      volume_to_be_attached = get_volumes(:resource_uid => volume_id).first
+      volume_to_be_attached = get_volumes(resource_uid: volume_id).first
       return false if volume_to_be_attached.nil?
-      filter = build_filters({
-        :instance_href => api_client.get_instance.href,
-        :volume_href => volume_to_be_attached.href
-      })
-      api_client.volume_attachments.index(:filter => filter).empty? ? false : true
+      filter = build_filters(instance_href: api_client.get_instance.href,
+                             volume_href: volume_to_be_attached.href)
+      api_client.volume_attachments.index(filter: filter).empty? ? false : true
     end
 
     # Checks if the volume is detached from an instance in the cloud.
@@ -98,13 +94,11 @@ module RightscaleVolumeTest
     # @return [Boolean] true if the volume is detached, false otherwise
     #
     def is_volume_detached?(volume_id)
-      volume_to_be_detached = get_volumes(:resource_uid => volume_id).first
+      volume_to_be_detached = get_volumes(resource_uid: volume_id).first
       return false if volume_to_be_detached.nil?
-      filter = build_filters({
-        :instance_href => api_client.get_instance.href,
-        :volume_href => volume_to_be_detached.href
-      })
-      api_client.volume_attachments.index(:filter => filter).empty? ? true : false
+      filter = build_filters(instance_href: api_client.get_instance.href,
+                             volume_href: volume_to_be_detached.href)
+      api_client.volume_attachments.index(filter: filter).empty? ? true : false
     end
 
     # Checks if the volume is deleted from the cloud.
@@ -114,7 +108,7 @@ module RightscaleVolumeTest
     # @return [Boolean] true if the volume is deleted, false otherwise
     #
     def is_volume_deleted?(volume_name)
-      volumes_found = get_volumes(:name => volume_name)
+      volumes_found = get_volumes(name: volume_name)
       volumes_found.empty? ? true : false
     end
 
@@ -147,9 +141,9 @@ module RightscaleVolumeTest
     # @return [Array<RightApi::Resource>] the snapshots found
     #
     def get_snapshots(volume_id)
-      volume = get_volumes(:resource_uid => volume_id).first
+      volume = get_volumes(resource_uid: volume_id).first
       return nil if volume.nil?
-      api_client.volume_snapshots.index(:filter => build_filters(:parent_volume_href => volume.href))
+      api_client.volume_snapshots.index(filter: build_filters(parent_volume_href: volume.href))
     end
 
     # Builds filters in the format supported by API 1.5.
@@ -163,10 +157,10 @@ module RightscaleVolumeTest
         case filter.to_s
         when /^(!|<>)(.*)$/
           operator = '<>'
-          filter = $2
+          filter = Regexp.last_match(2)
         when /^(==)?(.*)$/
           operator = '=='
-          filter = $2
+          filter = Regexp.last_match(2)
         end
         "#{name}#{operator}#{filter}"
       end

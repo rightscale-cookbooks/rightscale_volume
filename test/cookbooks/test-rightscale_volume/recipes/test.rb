@@ -39,12 +39,12 @@ log '***** TESTING action_create - create volume 1 *****'
 # Create volume 1 using the rightscale_volume cookbook
 rightscale_volume test_volume_1 do
   size volume_size
-  description "test device created from rightscale_volume cookbook"
+  description 'test device created from rightscale_volume cookbook'
   action :create
 end
 
 # Ensure that the volume was created in the cloud
-ruby_block "ensure volume 1 created" do
+ruby_block 'ensure volume 1 created' do
   block do
     if is_volume_created?(node['rightscale_volume'][test_volume_1]['volume_id'])
       Chef::Log.info 'TESTING action_create -- PASSED'
@@ -53,7 +53,6 @@ ruby_block "ensure volume 1 created" do
     end
   end
 end
-
 
 log '***** TESTING action_attach - attach volume 1 *****'
 
@@ -80,7 +79,6 @@ ruby_block 'mount volume and generate random test file' do
   end
 end
 
-
 log '***** TESTING action_snapshot - snasphot volume 1 *****'
 
 # Take a snapshot of volume 1
@@ -90,7 +88,7 @@ rightscale_volume test_volume_1 do
 end
 
 # Ensure that the snapshot was created in the cloud
-ruby_block "ensure snapshot of volume 1 created" do
+ruby_block 'ensure snapshot of volume 1 created' do
   block do
     if is_snapshot_created?(node['rightscale_volume'][test_volume_1]['volume_id'])
       Chef::Log.info 'TESTING action_snapshot -- PASSED'
@@ -99,7 +97,6 @@ ruby_block "ensure snapshot of volume 1 created" do
     end
   end
 end
-
 
 log '***** TESTING action_detach - detach volume 1 *****'
 
@@ -125,19 +122,18 @@ ruby_block 'ensure volume 1 detached' do
   end
 end
 
-
 log '***** TESTING action_create from snapshot - create volume 2 *****'
 
 # Create volume 2 from the snapshot of volume 1
 rightscale_volume test_volume_2 do
   size volume_size
-  description "test device created from rightscale_volume cookbook"
-  snapshot_id lazy{ get_snapshots(node['rightscale_volume'][test_volume_1]['volume_id']).first.show.resource_uid }
+  description 'test device created from rightscale_volume cookbook'
+  snapshot_id lazy { get_snapshots(node['rightscale_volume'][test_volume_1]['volume_id']).first.show.resource_uid }
   action :create
 end
 
 # Ensure that the volume 2 was created in the cloud
-ruby_block "ensure volume 2 created from snapshot" do
+ruby_block 'ensure volume 2 created from snapshot' do
   block do
     if is_volume_created?(node['rightscale_volume'][test_volume_2]['volume_id'])
       Chef::Log.info 'TESTING action_create from snapshot -- PASSED'
@@ -146,7 +142,6 @@ ruby_block "ensure volume 2 created from snapshot" do
     end
   end
 end
-
 
 log '***** TESTING action_cleanup - delete snapshots of volume 1 *****'
 
@@ -167,7 +162,6 @@ ruby_block 'ensure volume 1 snapshots cleaned up' do
   end
 end
 
-
 log '***** TESTING action_attach - attach volume 2 *****'
 
 # Attach volume 2
@@ -186,7 +180,6 @@ ruby_block 'ensure volume 2 attached' do
   end
 end
 
-
 log '***** TESTING action_detach - detach volume 2 *****'
 
 # Detach volume 2
@@ -204,7 +197,6 @@ ruby_block 'ensure volume 2 detached' do
     end
   end
 end
-
 
 log '***** TESTING action_delete - delete volume 1 and volume 2 *****'
 
@@ -234,7 +226,7 @@ ruby_block 'ensure volume 2 deleted' do
   block do
     if is_volume_deleted?(test_volume_2)
       Chef::Log.info 'TESTING action_delete -- PASSED'
-    elsif ['rackspace', 'openstack'].include?(node['cloud']['provider'])
+    elsif %w(rackspace openstack).include?(node['cloud']['provider'])
       Chef::Log.info 'TESTING action_delete -- SKIPPED cannot delete volume if it has dependent snapshots'
     else
       raise 'TESTING action_delete -- FAILED'
