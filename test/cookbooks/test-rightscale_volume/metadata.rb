@@ -10,6 +10,5 @@ rescue
 end
 
 depends 'rightscale_volume'
-depends 'marker'
 
 recipe 'test-rightscale_volume::test', 'Test recipe for testing rightscale_volume cookbook'
